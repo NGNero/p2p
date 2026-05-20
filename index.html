@@ -1,503 +1,1708 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DropZone - Secure P2P Transfer</title>
-    
-    <!-- Google Sans Flex Font -->
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Google+Sans+Flex:opsz,wght@8..144,100..1000&display=swap');
-        
-        body { font-family: "Google Sans Flex", sans-serif; }
-        
-        /* Custom UI Animations */
-        .fade-in { animation: fadeIn 0.3s ease-out forwards; }
-        .fade-out { animation: fadeOut 0.3s ease-in forwards; }
-        
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes fadeOut { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-10px); } }
-        
-        .animated-stripe {
-            background-image: linear-gradient(45deg, rgba(255,255,255,.15) 25%, transparent 25%, transparent 50%, rgba(255,255,255,.15) 50%, rgba(255,255,255,.15) 75%, transparent 75%, transparent);
-            background-size: 2rem 2rem;
-            animation: moveStripe 1s linear infinite;
-        }
-        @keyframes moveStripe { from { background-position: 2rem 0; } to { background-position: 0 0; } }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DropZone — Secure P2P Transfer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,300..400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-        /* Drag & Drop glow */
-        .drag-active {
-            border-color: #3b82f6 !important;
-            background-color: rgba(59, 130, 246, 0.05) !important;
-            box-shadow: 0 0 40px rgba(59, 130, 246, 0.2);
-        }
-        
-        /* Glassmorphism utilities */
-        .glass {
-            background: rgba(15, 23, 42, 0.7);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-        }
-    </style>
+    :root {
+      --bg:       #0e0e0f;
+      --bg2:      #1f1e1e;
+      --bg3:      #2a2929;
+      --accent:   #a8c7fa;
+      --accent2:  #7aa8f0;
+      --success:  #6ee7b7;
+      --danger:   #fca5a5;
+      --warn:     #fcd34d;
+      --text:     #e8eaed;
+      --text2:    #9aa0a6;
+      --border:   rgba(168,199,250,0.10);
+      --radius:   18px;
+      --font:     'DM Sans', sans-serif;
+      --mono:     'DM Mono', monospace;
+    }
 
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: { brand: '#3b82f6', success: '#10b981', danger: '#ef4444' }
-                }
-            }
-        }
-    </script>
+    html, body { height: 100%; }
 
-    <!-- WebRTC & QR Libraries -->
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ─── Ambient background noise ─── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 0;
+      background:
+        radial-gradient(ellipse 60% 50% at 15% 20%, rgba(168,199,250,0.05) 0%, transparent 70%),
+        radial-gradient(ellipse 50% 40% at 85% 80%, rgba(168,199,250,0.04) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    /* ─── Scrollbar ─── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--bg3); border-radius: 99px; }
+
+    /* ─── Utilities ─── */
+    .hidden { display: none !important; }
+
+    @keyframes fadeUp   { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes fadeDown { from { opacity:1; transform:translateY(0); }    to { opacity:0; transform:translateY(-10px); } }
+    @keyframes pulse    { 0%,100% { opacity:1; } 50% { opacity:.4; } }
+    @keyframes spin     { to { transform: rotate(360deg); } }
+    @keyframes stripe   { from { background-position: 36px 0; } to { background-position: 0 0; } }
+    @keyframes shimmer  { 0% { background-position: -400px 0; } 100% { background-position: 400px 0; } }
+    @keyframes pingDot  { 0%,100% { transform:scale(1); opacity:.75; } 50% { transform:scale(1.6); opacity:.3; } }
+    @keyframes ripple   { from { transform:scale(0); opacity:.4; } to { transform:scale(4); opacity:0; } }
+
+    .fade-in  { animation: fadeUp   .35s cubic-bezier(.22,.68,0,1.2) forwards; }
+    .fade-out { animation: fadeDown .25s ease-in forwards; }
+
+    /* ─── Card base ─── */
+    .card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      position: relative;
+      overflow: hidden;
+    }
+    .card::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(168,199,250,0.18), transparent);
+    }
+
+    /* ─── Navbar ─── */
+    .navbar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      background: rgba(14,14,15,0.85);
+      backdrop-filter: blur(20px) saturate(160%);
+      -webkit-backdrop-filter: blur(20px) saturate(160%);
+      border-bottom: 1px solid var(--border);
+      padding: 0 28px;
+      height: 62px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .navbar-logo {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 18px; font-weight: 700; letter-spacing: -.4px;
+      cursor: pointer; text-decoration: none; color: var(--text);
+      user-select: none;
+    }
+    .logo-icon {
+      width: 34px; height: 34px;
+      background: rgba(168,199,250,0.12);
+      border: 1px solid rgba(168,199,250,0.2);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--accent);
+    }
+    .navbar-right {
+      display: flex; align-items: center; gap: 16px;
+    }
+
+    /* ─── Status badge ─── */
+    .status-badge {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 13px; font-weight: 500; color: var(--text2);
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 99px; padding: 5px 14px 5px 10px;
+    }
+    .status-dot-wrap {
+      position: relative; width: 8px; height: 8px;
+    }
+    .status-dot {
+      width: 8px; height: 8px; border-radius: 50%; background: var(--text2);
+      display: block;
+    }
+    .status-dot-ping {
+      position: absolute; inset: 0; border-radius: 50%;
+      background: var(--text2); opacity: .5;
+      animation: pingDot 1.8s ease-in-out infinite;
+    }
+    .status-badge.ready  .status-dot,
+    .status-badge.ready  .status-dot-ping  { background: var(--success); }
+    .status-badge.warn   .status-dot,
+    .status-badge.warn   .status-dot-ping  { background: var(--warn); }
+    .status-badge.danger .status-dot,
+    .status-badge.danger .status-dot-ping  { background: var(--danger); }
+
+    /* ─── Encryption badge ─── */
+    .enc-badge {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 12px; font-weight: 600; letter-spacing: .5px;
+      color: rgba(168,199,250,0.75);
+      text-transform: uppercase;
+    }
+
+    /* ─── Main area ─── */
+    main {
+      min-height: 100vh;
+      padding: 100px 20px 60px;
+      display: flex; align-items: center; justify-content: center;
+      position: relative; z-index: 1;
+    }
+    .state-wrapper {
+      width: 100%; max-width: 700px;
+    }
+
+    /* ─── Toast ─── */
+    #toast-container {
+      position: fixed; top: 76px; left: 50%; transform: translateX(-50%);
+      z-index: 999; display: flex; flex-direction: column; align-items: center; gap: 8px;
+      pointer-events: none;
+    }
+    .toast {
+      background: var(--bg2); color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 99px; padding: 10px 22px;
+      font-size: 14px; font-weight: 500;
+      box-shadow: 0 8px 32px rgba(0,0,0,.5);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .toast.success { border-color: rgba(110,231,183,.3); color: var(--success); }
+    .toast.error   { border-color: rgba(252,165,165,.3); color: var(--danger); }
+    .toast.warn    { border-color: rgba(252,211,77,.3);  color: var(--warn); }
+
+    /* ─── Buttons ─── */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      font-family: var(--font); font-size: 14px; font-weight: 600;
+      border: none; border-radius: 12px; cursor: pointer;
+      transition: all .18s ease;
+      position: relative; overflow: hidden; user-select: none;
+      padding: 12px 22px;
+      text-decoration: none;
+    }
+    .btn::after {
+      content: ''; position: absolute; inset: 0;
+      background: white; opacity: 0; transition: opacity .15s;
+    }
+    .btn:hover::after { opacity: .06; }
+    .btn:active { transform: scale(.97); }
+    .btn-primary {
+      background: var(--accent);
+      color: #0e0e0f;
+    }
+    .btn-primary:hover { background: #bbd4fb; }
+    .btn-secondary {
+      background: var(--bg3); color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover { background: #333232; }
+    .btn-danger {
+      background: transparent; color: var(--danger);
+      border: 1px solid rgba(252,165,165,.25);
+    }
+    .btn-danger:hover { background: rgba(252,165,165,.08); }
+    .btn-ghost {
+      background: transparent; color: var(--text2);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover { color: var(--text); border-color: rgba(168,199,250,.3); }
+    .btn-lg { padding: 14px 28px; font-size: 15px; border-radius: 14px; }
+    .btn-sm { padding: 7px 16px; font-size: 13px; border-radius: 9px; }
+    .btn-full { width: 100%; }
+    .btn:disabled { opacity: .45; cursor: not-allowed; pointer-events: none; }
+
+    /* ─── Section headings ─── */
+    .display-title {
+      font-size: clamp(36px, 6vw, 58px);
+      font-weight: 800; letter-spacing: -2px; line-height: 1.05;
+      color: var(--text);
+    }
+    .display-title span { color: var(--accent); }
+    .section-label {
+      font-size: 11px; font-weight: 700; letter-spacing: 2px;
+      text-transform: uppercase; color: var(--accent);
+      margin-bottom: 8px; display: block;
+    }
+
+    /* ════════════════════════════════
+       STATE 1 — UPLOAD
+    ════════════════════════════════ */
+    #state-upload .hero { text-align: center; margin-bottom: 40px; }
+    #state-upload .hero p {
+      font-size: 16px; color: var(--text2); max-width: 440px; margin: 12px auto 0;
+      line-height: 1.6;
+    }
+    #state-upload .features-row {
+      display: flex; gap: 8px; justify-content: center;
+      flex-wrap: wrap; margin-top: 18px;
+    }
+    .feature-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: rgba(168,199,250,0.07);
+      border: 1px solid rgba(168,199,250,0.14);
+      border-radius: 99px; padding: 5px 14px;
+      font-size: 12px; font-weight: 500; color: rgba(168,199,250,.8);
+    }
+
+    /* ─── Dropzone ─── */
+    #dropzone {
+      border: 2px dashed rgba(168,199,250,0.18);
+      border-radius: 22px;
+      background: var(--bg2);
+      min-height: 240px;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      cursor: pointer; transition: all .22s ease;
+      position: relative; overflow: hidden;
+      padding: 40px 24px;
+    }
+    #dropzone::before {
+      content: ''; position: absolute; inset: 0;
+      background: radial-gradient(ellipse 60% 50% at 50% 50%, rgba(168,199,250,.04), transparent 70%);
+      pointer-events: none; transition: opacity .3s;
+      opacity: 0;
+    }
+    #dropzone:hover, #dropzone.drag-active {
+      border-color: var(--accent);
+      background: rgba(168,199,250,0.04);
+      box-shadow: 0 0 0 4px rgba(168,199,250,0.06), inset 0 0 40px rgba(168,199,250,0.03);
+    }
+    #dropzone:hover::before, #dropzone.drag-active::before { opacity: 1; }
+    #dropzone.drag-active {
+      border-style: solid;
+      box-shadow: 0 0 0 4px rgba(168,199,250,0.12), inset 0 0 60px rgba(168,199,250,0.06);
+    }
+    .dropzone-icon {
+      width: 64px; height: 64px;
+      background: rgba(168,199,250,0.1);
+      border: 1px solid rgba(168,199,250,0.18);
+      border-radius: 18px;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--accent); margin-bottom: 18px;
+      transition: all .22s ease;
+    }
+    #dropzone:hover .dropzone-icon {
+      background: rgba(168,199,250,0.16);
+      transform: scale(1.08) translateY(-2px);
+    }
+    .dropzone-label {
+      font-size: 20px; font-weight: 700; color: var(--text);
+      margin-bottom: 6px;
+    }
+    .dropzone-sub {
+      font-size: 14px; color: var(--text2); text-align: center;
+    }
+
+    /* ─── File queue ─── */
+    #file-queue {
+      margin-top: 16px;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .file-item {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 14px;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .file-item-icon {
+      width: 36px; height: 36px; min-width: 36px;
+      background: rgba(168,199,250,0.1);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--accent); font-size: 13px; font-weight: 700;
+      font-family: var(--mono);
+    }
+    .file-item-info { flex: 1; min-width: 0; }
+    .file-item-name {
+      font-size: 14px; font-weight: 500; color: var(--text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .file-item-meta { font-size: 12px; color: var(--text2); margin-top: 2px; }
+    .file-item-remove {
+      background: none; border: none; cursor: pointer;
+      color: var(--text2); padding: 4px; border-radius: 6px;
+      display: flex; transition: color .15s;
+    }
+    .file-item-remove:hover { color: var(--danger); }
+    .file-queue-footer {
+      margin-top: 12px;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 8px;
+    }
+    .file-queue-summary { font-size: 13px; color: var(--text2); }
+
+    /* ─── Options panel ─── */
+    .options-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px;
+    }
+    @media (max-width: 540px) { .options-grid { grid-template-columns: 1fr; } }
+    .option-card {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 13px; padding: 14px 16px;
+      cursor: pointer; transition: all .18s; user-select: none;
+      display: flex; align-items: flex-start; gap: 12px;
+    }
+    .option-card:hover { border-color: rgba(168,199,250,.3); }
+    .option-card.active {
+      border-color: var(--accent);
+      background: rgba(168,199,250,0.06);
+    }
+    .option-card-icon {
+      width: 32px; height: 32px; min-width: 32px;
+      background: rgba(168,199,250,0.1); border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--accent);
+    }
+    .option-card.active .option-card-icon { background: rgba(168,199,250,0.2); }
+    .option-card-body { flex: 1; }
+    .option-card-title { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+    .option-card-desc  { font-size: 12px; color: var(--text2); line-height: 1.4; }
+    .option-check {
+      width: 18px; height: 18px; min-width: 18px; border-radius: 99px;
+      border: 2px solid var(--border); margin-top: 1px;
+      display: flex; align-items: center; justify-content: center;
+      transition: all .15s;
+    }
+    .option-card.active .option-check {
+      border-color: var(--accent);
+      background: var(--accent);
+    }
+
+    /* ════════════════════════════════
+       STATE 2 — SHARE
+    ════════════════════════════════ */
+    #state-share {
+      display: none;
+      align-items: center;
+      flex-direction: column;
+      gap: 0;
+    }
+    .share-header { text-align: center; margin-bottom: 28px; }
+    .share-header h2 { font-size: 28px; font-weight: 800; letter-spacing: -1px; }
+    .share-header p { font-size: 14px; color: var(--text2); margin-top: 6px; }
+
+    .qr-wrapper {
+      background: white; padding: 20px; border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.5);
+      margin-bottom: 24px; position: relative;
+    }
+    .qr-wrapper canvas { display: block; }
+    .qr-overlay {
+      position: absolute; inset: 0; border-radius: 20px;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(255,255,255,.92); opacity: 0;
+      transition: opacity .2s; cursor: pointer;
+      font-size: 13px; font-weight: 700; color: #0e0e0f; gap: 6px;
+    }
+    .qr-wrapper:hover .qr-overlay { opacity: 1; }
+
+    .link-box {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 13px;
+      padding: 12px 14px;
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 16px;
+    }
+    .link-box-url {
+      flex: 1; min-width: 0;
+      font-family: var(--mono); font-size: 12px; color: var(--text2);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+
+    .file-list-waiting {
+      width: 100%; display: flex; flex-direction: column; gap: 6px; margin-top: 6px;
+    }
+    .waiting-file-row {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 11px;
+      padding: 10px 12px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .waiting-badge {
+      font-size: 11px; font-weight: 700; letter-spacing: .5px;
+      text-transform: uppercase;
+      color: var(--accent); background: rgba(168,199,250,.1);
+      border: 1px solid rgba(168,199,250,.2);
+      border-radius: 99px; padding: 3px 10px;
+      animation: pulse 2.2s ease-in-out infinite;
+      white-space: nowrap;
+    }
+
+    /* ─── Connection timeout bar ─── */
+    .timeout-bar-wrap {
+      width: 100%; background: var(--bg3); border-radius: 99px; height: 3px; margin-top: 20px; overflow: hidden;
+    }
+    .timeout-bar {
+      height: 3px; background: var(--accent); border-radius: 99px;
+      width: 100%; transition: width 1s linear;
+      transform-origin: left;
+    }
+    .timeout-label {
+      font-size: 12px; color: var(--text2); text-align: center; margin-top: 6px;
+    }
+
+    /* ════════════════════════════════
+       STATE 3 — TRANSFER
+    ════════════════════════════════ */
+    #state-transfer { display: none; flex-direction: column; }
+
+    .transfer-header {
+      display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px;
+    }
+    .transfer-title {
+      font-size: 30px; font-weight: 800; letter-spacing: -1px; color: var(--text);
+    }
+    .transfer-file-name {
+      font-size: 13px; color: var(--text2); margin-top: 4px;
+      font-family: var(--mono); overflow: hidden; text-overflow: ellipsis;
+      white-space: nowrap; max-width: 260px;
+    }
+    .transfer-stats { text-align: right; }
+    .transfer-speed {
+      font-size: 22px; font-weight: 700; color: var(--accent);
+      font-family: var(--mono);
+    }
+    .transfer-eta { font-size: 13px; color: var(--text2); margin-top: 2px; font-family: var(--mono); }
+
+    /* ─── Progress bar ─── */
+    .progress-track {
+      width: 100%; background: var(--bg3); border-radius: 99px;
+      height: 10px; overflow: hidden; margin-bottom: 10px;
+      position: relative;
+    }
+    .progress-fill {
+      height: 100%; width: 0;
+      background: linear-gradient(90deg, var(--accent2), var(--accent));
+      border-radius: 99px;
+      transition: width .25s ease;
+      position: relative;
+    }
+    .progress-fill::after {
+      content: '';
+      position: absolute; inset: 0;
+      background-image: linear-gradient(90deg, transparent 0%, rgba(255,255,255,.22) 50%, transparent 100%);
+      background-size: 200% 100%;
+      animation: shimmer 1.6s infinite;
+    }
+    .progress-fill.striped {
+      background-image:
+        linear-gradient(90deg, var(--accent2), var(--accent)),
+        repeating-linear-gradient(45deg, transparent, transparent 8px, rgba(255,255,255,.08) 8px, rgba(255,255,255,.08) 16px);
+      animation: stripe .8s linear infinite;
+      background-size: 36px 36px, auto;
+    }
+    .progress-row {
+      display: flex; justify-content: space-between;
+      font-size: 13px; font-family: var(--mono); color: var(--text2);
+      margin-bottom: 24px;
+    }
+    .progress-pct { color: var(--text); font-weight: 700; }
+
+    /* ─── File transfer queue during sending ─── */
+    .transfer-queue {
+      display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px;
+    }
+    .tq-row {
+      display: flex; align-items: center; gap: 10px;
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 10px; padding: 10px 12px;
+    }
+    .tq-row.active { border-color: rgba(168,199,250,.35); }
+    .tq-row.done   { opacity: .55; }
+    .tq-mini-bar { flex: 1; background: var(--bg3); border-radius: 99px; height: 4px; overflow: hidden; }
+    .tq-mini-fill { height: 100%; background: var(--accent); border-radius: 99px; width: 0; transition: width .3s; }
+    .tq-done-icon { color: var(--success); }
+
+    /* ─── Transfer footer ─── */
+    .transfer-footer {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; flex-wrap: wrap;
+    }
+    .transfer-info-pills { display: flex; gap: 8px; flex-wrap: wrap; }
+    .info-pill {
+      font-size: 12px; font-family: var(--mono); color: var(--text2);
+      background: var(--bg3); border-radius: 99px; padding: 4px 12px;
+      border: 1px solid var(--border);
+    }
+    .info-pill.live { color: var(--accent); border-color: rgba(168,199,250,.2); }
+
+    /* ─── Pause/Resume ─── */
+    .transfer-actions { display: flex; gap: 8px; }
+
+    /* ════════════════════════════════
+       STATE 4 — DONE
+    ════════════════════════════════ */
+    #state-done { display: none; flex-direction: column; align-items: center; text-align: center; }
+    .done-icon {
+      width: 80px; height: 80px;
+      background: rgba(110,231,183,0.12);
+      border: 1px solid rgba(110,231,183,.2);
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      color: var(--success); margin-bottom: 24px;
+    }
+    .done-title { font-size: 32px; font-weight: 800; letter-spacing: -1px; margin-bottom: 8px; }
+    .done-summary {
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 13px; padding: 16px; width: 100%;
+      font-size: 13px; font-family: var(--mono); color: var(--text2);
+      margin: 16px 0 28px; text-align: left;
+    }
+    .done-summary-row { display: flex; justify-content: space-between; padding: 4px 0; }
+    .done-summary-row span:last-child { color: var(--text); }
+
+    /* ════════════════════════════════
+       STATE 5 — ERROR
+    ════════════════════════════════ */
+    #state-error { display: none; flex-direction: column; align-items: center; text-align: center; }
+    .error-icon {
+      width: 80px; height: 80px;
+      background: rgba(252,165,165,0.1);
+      border: 1px solid rgba(252,165,165,.2);
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      color: var(--danger); margin-bottom: 24px;
+    }
+    .error-title { font-size: 30px; font-weight: 800; letter-spacing: -1px; margin-bottom: 8px; }
+    .error-code-box {
+      font-family: var(--mono); font-size: 12px; color: var(--text2);
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 10px; padding: 12px 16px; width: 100%;
+      text-align: left; margin: 12px 0 24px; line-height: 1.6;
+    }
+
+    /* ════════════════════════════════
+       MODAL
+    ════════════════════════════════ */
+    .modal-backdrop {
+      position: fixed; inset: 0; z-index: 200;
+      background: rgba(0,0,0,.75);
+      backdrop-filter: blur(4px);
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    .modal {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 28px;
+      width: 100%; max-width: 420px;
+      position: relative;
+    }
+    .modal h3 { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+    .modal p  { font-size: 14px; color: var(--text2); margin-bottom: 20px; line-height: 1.5; }
+    .modal-footer { display: flex; gap: 10px; justify-content: flex-end; }
+
+    /* ─── Divider ─── */
+    .divider {
+      border: none; border-top: 1px solid var(--border); margin: 20px 0;
+    }
+
+    /* ─── Spinner ─── */
+    .spinner {
+      width: 18px; height: 18px; border-radius: 50%;
+      border: 2px solid rgba(168,199,250,.2);
+      border-top-color: var(--accent);
+      animation: spin .7s linear infinite;
+    }
+
+    /* ─── Peer ID chip ─── */
+    .peer-id-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 8px; padding: 4px 10px;
+      font-family: var(--mono); font-size: 11px; color: var(--text2);
+    }
+
+    /* ─── Responsive ─── */
+    @media (max-width: 600px) {
+      .navbar { padding: 0 16px; }
+      .enc-badge span { display: none; }
+      .transfer-header { flex-direction: column; gap: 12px; }
+      .transfer-stats { text-align: left; }
+    }
+  </style>
 </head>
-<body class="bg-[#0b1120] text-slate-100 h-screen w-full flex flex-col overflow-hidden selection:bg-brand selection:text-white">
+<body>
 
-    <!-- Toast Notification Container -->
-    <div id="toast-container" class="fixed top-24 left-1/2 transform -translate-x-1/2 z-50 flex flex-col gap-2 pointer-events-none"></div>
+<!-- Toast -->
+<div id="toast-container" aria-live="polite" aria-atomic="false"></div>
 
-    <!-- Navbar -->
-    <nav class="w-full p-5 flex justify-between items-center glass fixed top-0 z-40">
-        <div class="text-2xl font-bold tracking-tight flex items-center gap-3 cursor-pointer" onclick="window.location.href = window.location.pathname">
-            <div class="bg-brand/20 p-2 rounded-xl text-brand">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-            </div>
-            DropZone
+<!-- Cancel confirm modal -->
+<div id="cancel-modal" class="modal-backdrop hidden">
+  <div class="modal">
+    <h3>Abort transfer?</h3>
+    <p>This will disconnect the session immediately. The receiver will be notified and any partial download will be discarded.</p>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" id="cancel-modal-no">Keep going</button>
+      <button class="btn btn-danger btn-sm" id="cancel-modal-yes">Abort</button>
+    </div>
+  </div>
+</div>
+
+<!-- Navbar -->
+<nav class="navbar" role="banner">
+  <a class="navbar-logo" href="." title="DropZone — restart">
+    <div class="logo-icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M13 10V3L4 14h7v7l9-11h-7z"/>
+      </svg>
+    </div>
+    DropZone
+  </a>
+  <div class="navbar-right">
+    <div class="enc-badge" title="End-to-end encrypted via WebRTC DTLS">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      <span>E2E Encrypted</span>
+    </div>
+    <div class="status-badge" id="status-badge" role="status">
+      <div class="status-dot-wrap">
+        <span class="status-dot-ping" id="status-ping"></span>
+        <span class="status-dot" id="status-dot"></span>
+      </div>
+      <span id="status-label">Initializing</span>
+    </div>
+  </div>
+</nav>
+
+<main>
+  <div class="state-wrapper">
+
+    <!-- ══ STATE 1: UPLOAD ══ -->
+    <div id="state-upload" class="hidden">
+      <div class="hero">
+        <span class="section-label">P2P File Transfer</span>
+        <h1 class="display-title">Drop it.<br><span>Share it.</span></h1>
+        <p>Zero server storage. Files go directly from your device to theirs — encrypted in transit via WebRTC.</p>
+        <div class="features-row">
+          <div class="feature-pill">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+            No file size limit
+          </div>
+          <div class="feature-pill">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            Direct P2P
+          </div>
+          <div class="feature-pill">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            DTLS Encrypted
+          </div>
+          <div class="feature-pill">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"/></svg>
+            Multi-file queue
+          </div>
         </div>
-        <div class="flex items-center gap-4">
-            <span id="connection-status" class="flex items-center gap-2 text-sm font-medium text-slate-400">
-                <span class="relative flex h-2.5 w-2.5"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-slate-500 opacity-75"></span><span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-slate-500" id="status-dot"></span></span>
-                Initializing
-            </span>
+      </div>
+
+      <!-- Dropzone -->
+      <label id="dropzone" role="button" tabindex="0" aria-label="Click or drag files to upload"
+             title="Click to select files, or drag and drop">
+        <div class="dropzone-icon" id="dz-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/>
+            <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
+          </svg>
         </div>
-    </nav>
+        <span class="dropzone-label">Click or drag files here</span>
+        <span class="dropzone-sub">Any format · Any size · Multiple files OK</span>
+        <input type="file" id="file-input" multiple style="display:none;" aria-hidden="true">
+      </label>
 
-    <!-- Main Content -->
-    <main class="flex-1 w-full h-full pt-20 flex flex-col items-center justify-center p-6 relative">
+      <!-- File queue -->
+      <div id="file-queue" role="list" aria-label="Selected files"></div>
 
-        <!-- STATE 1: UPLOAD (Sender) -->
-        <div id="state-upload" class="hidden w-full max-w-4xl flex flex-col transition-all">
-            <div class="text-center mb-10">
-                <h1 class="text-5xl md:text-6xl font-black mb-4 tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400">Secure Direct Transfer.</h1>
-                <p class="text-lg text-slate-400 max-w-xl mx-auto">End-to-end encrypted. No servers, no file limits. Files stream directly from your device to theirs.</p>
+      <!-- Options -->
+      <div id="upload-footer" class="hidden">
+        <hr class="divider">
+        <span class="section-label" style="margin-bottom:12px;">Transfer settings</span>
+        <div class="options-grid">
+          <div class="option-card active" id="opt-speed" role="radio" aria-checked="true" tabindex="0" title="Slower paced delivery, allowing the receiver to cancel at any time">
+            <div class="option-card-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
             </div>
-            
-            <label id="dropzone" class="glass h-72 border-2 border-dashed border-slate-700 rounded-3xl flex flex-col items-center justify-center cursor-pointer transition-all duration-300 hover:border-brand hover:bg-slate-800/50 group">
-                <div class="bg-slate-800 p-5 rounded-2xl mb-4 group-hover:scale-110 transition-transform duration-300 group-hover:bg-brand/20 group-hover:text-brand text-slate-400">
-                    <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
-                </div>
-                <span class="text-2xl font-bold text-slate-200 group-hover:text-white transition-colors">Click or drag a file here</span>
-                <span class="text-slate-500 mt-2 font-medium">Any format up to unlimited size</span>
-                <input type="file" id="file-input" class="hidden">
-            </label>
+            <div class="option-card-body">
+              <div class="option-card-title">Safe mode</div>
+              <div class="option-card-desc">Throttled chunks · Receiver can cancel anytime</div>
+            </div>
+            <div class="option-check" id="check-speed">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#0e0e0f" stroke-width="3.5"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+          </div>
+          <div class="option-card" id="opt-fast" role="radio" aria-checked="false" tabindex="0" title="Maximum throughput — no throttling">
+            <div class="option-card-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            </div>
+            <div class="option-card-body">
+              <div class="option-card-title">Fast mode</div>
+              <div class="option-card-desc">Max throughput · No throttle</div>
+            </div>
+            <div class="option-check" id="check-fast"></div>
+          </div>
+          <div class="option-card active" id="opt-zip" role="checkbox" aria-checked="false" tabindex="0" title="Send files as a zip archive">
+            <div class="option-card-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+            </div>
+            <div class="option-card-body">
+              <div class="option-card-title">Auto-name files</div>
+              <div class="option-card-desc">Sanitize filenames on receive</div>
+            </div>
+            <div class="option-check check-off" id="check-zip"></div>
+          </div>
+          <div class="option-card" id="opt-notify" role="checkbox" aria-checked="false" tabindex="0" title="Desktop notification when a receiver connects">
+            <div class="option-card-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            </div>
+            <div class="option-card-body">
+              <div class="option-card-title">Notify on connect</div>
+              <div class="option-card-desc">Desktop alert when peer joins</div>
+            </div>
+            <div class="option-check check-off" id="check-notify"></div>
+          </div>
         </div>
-
-        <!-- STATE 2: SHARE (Sender) -->
-        <div id="state-share" class="hidden w-full max-w-md flex flex-col items-center text-center glass p-8 rounded-3xl">
-            <h2 class="text-2xl font-bold mb-2">Scan to Download</h2>
-            <p class="text-sm text-slate-400 mb-6">Keep this tab open until the transfer finishes.</p>
-            
-            <div class="bg-white p-4 rounded-2xl shadow-2xl mb-6 relative group">
-                <canvas id="qrcode" class="w-56 h-56"></canvas>
-            </div>
-            
-            <button onclick="copyShareLink()" class="w-full flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 py-3 rounded-xl font-medium transition-colors mb-6">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
-                Copy Link instead
-            </button>
-
-            <div class="w-full flex items-center justify-between bg-slate-900/80 rounded-xl p-3 border border-slate-800">
-                <div class="flex items-center gap-3 overflow-hidden">
-                    <div class="bg-slate-800 p-2 rounded-lg"><svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg></div>
-                    <div class="text-left truncate">
-                        <p id="filename-display" class="font-medium text-slate-200 text-sm truncate w-32">file.txt</p>
-                        <p id="filesize-display" class="text-xs text-slate-500">0 MB</p>
-                    </div>
-                </div>
-                <div class="flex items-center gap-2 text-brand font-bold text-xs bg-brand/10 px-3 py-1.5 rounded-full animate-pulse">
-                    Waiting...
-                </div>
-            </div>
+        <div class="file-queue-footer" style="margin-top: 16px;">
+          <span class="file-queue-summary" id="queue-summary">0 files selected</span>
+          <button class="btn btn-primary btn-lg" id="btn-share">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            Generate Share Link
+          </button>
         </div>
+      </div>
+    </div>
 
-        <!-- STATE 3: TRANSFERRING -->
-        <div id="state-transfer" class="hidden w-full max-w-2xl flex flex-col glass p-8 rounded-3xl">
-            <div class="flex justify-between items-end mb-8">
-                <div>
-                    <h2 id="transfer-status" class="text-3xl font-black tracking-tight text-white mb-1">Connecting...</h2>
-                    <p id="transfer-filename" class="text-slate-400 text-sm font-medium truncate max-w-xs">Preparing file</p>
-                </div>
-                <div class="text-right">
-                    <p id="transfer-speed" class="text-xl font-bold text-brand">-- MB/s</p>
-                    <p id="transfer-eta" class="text-slate-500 text-sm font-medium">Estimating time...</p>
-                </div>
-            </div>
-            
-            <div class="w-full bg-slate-900 border border-slate-700 rounded-full h-6 mb-3 overflow-hidden relative shadow-inner">
-                <div id="progress-bar" class="bg-brand h-full w-0 transition-all duration-200 relative animated-stripe"></div>
-            </div>
-            
-            <div class="flex justify-between w-full text-slate-400 text-sm font-medium mb-8">
-                <span id="progress-text">0%</span>
-                <span id="progress-bytes">0 MB / 0 MB</span>
-            </div>
+    <!-- ══ STATE 2: SHARE ══ -->
+    <div id="state-share" class="card hidden" style="padding: 36px 32px; max-width: 440px; margin: 0 auto;">
+      <div class="share-header">
+        <h2>Share with receiver</h2>
+        <p>Scan the QR code or send the link. Keep this tab open.</p>
+      </div>
 
-            <button onclick="cancelTransfer()" class="self-center flex items-center gap-2 text-danger hover:text-red-400 hover:bg-red-500/10 px-6 py-2 rounded-full font-bold transition-colors text-sm">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                Cancel Transfer
-            </button>
+      <div style="display:flex; justify-content:center;">
+        <div class="qr-wrapper">
+          <canvas id="qrcode"></canvas>
+          <div class="qr-overlay" id="qr-copy-overlay" role="button" tabindex="0" title="Copy link">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copy Link
+          </div>
         </div>
+      </div>
 
-        <!-- STATE 4: DONE -->
-        <div id="state-done" class="hidden w-full max-w-md flex flex-col items-center text-center glass p-10 rounded-3xl">
-            <div class="bg-success/20 text-success p-5 rounded-full mb-6">
-                <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
-            </div>
-            <h2 class="text-3xl font-black mb-2 text-white">Transfer Complete!</h2>
-            <p class="text-slate-400 mb-8">File safely received and saved.</p>
-            <button onclick="window.location.href = window.location.pathname" class="bg-brand hover:bg-blue-600 text-white px-8 py-3.5 rounded-xl font-bold transition-all shadow-lg shadow-brand/20">
-                Send Another File
-            </button>
+      <div class="link-box" style="margin-top:20px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text2);flex-shrink:0;"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        <span class="link-box-url" id="share-url-display">—</span>
+        <button class="btn btn-ghost btn-sm" id="btn-copy-link" title="Copy to clipboard">Copy</button>
+      </div>
+
+      <div class="file-list-waiting" id="waiting-file-list"></div>
+
+      <div class="timeout-bar-wrap">
+        <div class="timeout-bar" id="timeout-bar"></div>
+      </div>
+      <p class="timeout-label" id="timeout-label">Session active · expires in <span id="timeout-secs">300</span>s</p>
+
+      <hr class="divider">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+        <div class="peer-id-chip" id="peer-id-display" title="Your temporary peer ID">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+          ID: —
         </div>
-        
-        <!-- STATE 5: ERROR -->
-        <div id="state-error" class="hidden w-full max-w-md flex flex-col items-center text-center glass p-10 rounded-3xl border-red-500/30">
-            <div class="bg-danger/20 text-danger p-5 rounded-full mb-6">
-                <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-            </div>
-            <h2 class="text-3xl font-black mb-2 text-white" id="error-title">Connection Failed</h2>
-            <p class="text-slate-400 mb-8" id="error-msg">The connection was lost or the sender cancelled.</p>
-            <button onclick="window.location.href = window.location.pathname" class="bg-slate-800 hover:bg-slate-700 text-white px-8 py-3.5 rounded-xl font-bold transition-all">
-                Try Again
-            </button>
+        <button class="btn btn-ghost btn-sm" id="btn-cancel-share">Cancel session</button>
+      </div>
+    </div>
+
+    <!-- ══ STATE 3: TRANSFER ══ -->
+    <div id="state-transfer" class="card hidden" style="padding: 32px;">
+      <div class="transfer-header">
+        <div>
+          <h2 class="transfer-title" id="transfer-status">Connecting…</h2>
+          <div class="transfer-file-name" id="transfer-filename">—</div>
         </div>
+        <div class="transfer-stats">
+          <div class="transfer-speed" id="transfer-speed">— MB/s</div>
+          <div class="transfer-eta" id="transfer-eta">Estimating…</div>
+        </div>
+      </div>
 
-    </main>
+      <div class="transfer-queue" id="transfer-queue-list"></div>
 
-    <script>
-        // --- Security & Compatibility Check ---
-        if (!window.isSecureContext) {
-            alert("WebRTC requires a secure context. Please use HTTPS or localhost.");
-        }
+      <div class="progress-track">
+        <div class="progress-fill striped" id="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width:0%"></div>
+      </div>
+      <div class="progress-row">
+        <span id="progress-bytes">0 B / 0 B</span>
+        <span class="progress-pct" id="progress-text">0%</span>
+      </div>
 
-        // --- UI & Utility Logic ---
-        const states = {
-            upload: document.getElementById('state-upload'),
-            share: document.getElementById('state-share'),
-            transfer: document.getElementById('state-transfer'),
-            done: document.getElementById('state-done'),
-            error: document.getElementById('state-error')
+      <div class="transfer-footer">
+        <div class="transfer-info-pills">
+          <span class="info-pill live" id="info-peer">⬤ P2P</span>
+          <span class="info-pill" id="info-chunks">0 chunks</span>
+          <span class="info-pill" id="info-elapsed">0s</span>
+        </div>
+        <div class="transfer-actions">
+          <button class="btn btn-secondary btn-sm" id="btn-pause" title="Pause / Resume transfer">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" id="pause-icon"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+            <span id="pause-label">Pause</span>
+          </button>
+          <button class="btn btn-danger btn-sm" id="btn-cancel-transfer">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            Abort
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ STATE 4: DONE ══ -->
+    <div id="state-done" class="card hidden" style="padding: 40px 32px; max-width: 440px; margin: 0 auto; align-items:center; text-align:center;">
+      <div class="done-icon">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <h2 class="done-title">Transfer complete</h2>
+      <p style="color:var(--text2);font-size:14px;margin-bottom:0;">All files received and saved.</p>
+      <div class="done-summary" id="done-summary"></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">
+        <button class="btn btn-primary btn-lg" id="btn-send-another">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Send more files
+        </button>
+        <button class="btn btn-ghost btn-lg" id="btn-share-again">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+          Share link again
+        </button>
+      </div>
+    </div>
+
+    <!-- ══ STATE 5: ERROR ══ -->
+    <div id="state-error" class="card hidden" style="padding: 40px 32px; max-width: 440px; margin: 0 auto; align-items:center; text-align:center;">
+      <div class="error-icon">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      </div>
+      <h2 class="error-title" id="error-title">Something went wrong</h2>
+      <p style="color:var(--text2);font-size:14px;margin-bottom:0;" id="error-msg">An unexpected error occurred.</p>
+      <div class="error-code-box" id="error-detail"></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">
+        <button class="btn btn-primary" id="btn-retry">Retry</button>
+        <button class="btn btn-ghost" id="btn-go-home">Go home</button>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<script>
+// ╔═════════════════════════════════════════════════════╗
+// ║  DropZone — enhanced P2P file transfer              ║
+// ║  Security: no innerHTML anywhere                    ║
+// ╚═════════════════════════════════════════════════════╝
+
+'use strict';
+
+/* ─── Security check ─── */
+if (!window.isSecureContext) {
+  document.body.textContent = 'DropZone requires a secure context (HTTPS or localhost). Please reload over HTTPS.';
+  throw new Error('Insecure context');
+}
+
+/* ─── Constants ─── */
+const CHUNK_SIZE_SAFE = 64  * 1024;   // 64 KB  — safe/throttled mode
+const CHUNK_SIZE_FAST = 256 * 1024;   // 256 KB — fast mode
+const THROTTLE_DELAY  = 35;           // ms between chunks in safe mode (lets receiver cancel)
+const SESSION_TIMEOUT = 300;          // seconds before share link expires
+const MAX_FILE_SIZE   = 10 * 1024 * 1024 * 1024; // 10 GB sanity cap
+const MAX_FILES       = 20;
+const ALLOWED_FNAME   = /[^a-zA-Z0-9.\-_ ()[\]]/g;
+
+/* ─── State ─── */
+let peer        = null;
+let connection  = null;
+let fileQueue   = [];       // array of File objects
+let shareUrl    = '';
+let currentState = null;
+let isActive    = false;    // blocks beforeunload
+let isFastMode  = false;
+let isPaused    = false;
+let pausePromiseResolve = null;
+let chunkCount  = 0;
+let startTime   = 0;
+let lastTime    = 0;
+let lastBytes   = 0;
+let totalSent   = 0;
+let totalSize   = 0;
+let elapsedTimer = null;
+let timeoutTimer = null;
+let timeoutRemaining = SESSION_TIMEOUT;
+let notifyOnConnect = false;
+let transferSummary = {};
+
+/* ─── URL params ─── */
+const urlParams    = new URLSearchParams(window.location.search);
+const connectToId  = urlParams.get('peer');
+
+/* ─── DOM helpers (no innerHTML) ─── */
+function el(id)  { return document.getElementById(id); }
+function qs(sel) { return document.querySelector(sel); }
+function mk(tag, props = {}) {
+  const e = document.createElement(tag);
+  Object.entries(props).forEach(([k, v]) => {
+    if (k === 'class') e.className = v;
+    else if (k === 'text')  e.textContent = v;
+    else if (k === 'title') e.title = v;
+    else e.setAttribute(k, v);
+  });
+  return e;
+}
+function setText(id, val) { el(id).textContent = val; }
+function clearChildren(node) { while (node.firstChild) node.removeChild(node.firstChild); }
+
+/* ─── SVG helper ─── */
+function svgIcon(path, size = 16, opts = {}) {
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('width', size); svg.setAttribute('height', size);
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('fill', 'none');
+  svg.setAttribute('stroke', 'currentColor');
+  svg.setAttribute('stroke-width', opts.strokeWidth || '2');
+  svg.setAttribute('stroke-linecap', 'round');
+  svg.setAttribute('stroke-linejoin', 'round');
+  if (opts.class) svg.setAttribute('class', opts.class);
+  const p = document.createElementNS(ns, 'path');
+  p.setAttribute('d', path);
+  svg.appendChild(p);
+  if (opts.extra) {
+    opts.extra.forEach(ep => {
+      const ex = document.createElementNS(ns, ep.tag || 'path');
+      Object.entries(ep).forEach(([k, v]) => { if (k !== 'tag') ex.setAttribute(k, v); });
+      svg.appendChild(ex);
+    });
+  }
+  return svg;
+}
+
+/* ─── Toast ─── */
+function showToast(message, type = 'normal', duration = 3500) {
+  const container = el('toast-container');
+  const toast = mk('div', { class: `toast ${type} fade-in`, role: 'alert' });
+  toast.textContent = message;
+  container.appendChild(toast);
+  setTimeout(() => {
+    toast.classList.replace('fade-in', 'fade-out');
+    setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 350);
+  }, duration);
+}
+
+/* ─── Format helpers ─── */
+function fmtBytes(b) {
+  if (b === 0) return '0 B';
+  const k = 1024, s = ['B','KB','MB','GB','TB'];
+  const i = Math.min(Math.floor(Math.log(b) / Math.log(k)), s.length - 1);
+  return (b / Math.pow(k, i)).toFixed(i < 2 ? 0 : 1) + ' ' + s[i];
+}
+function fmtTime(s) {
+  if (!isFinite(s) || s < 0) return '—';
+  if (s < 60)  return `${Math.round(s)}s`;
+  if (s < 3600) return `${Math.floor(s/60)}m ${Math.round(s%60)}s`;
+  return `${Math.floor(s/3600)}h ${Math.floor((s%3600)/60)}m`;
+}
+function fmtElapsed(ms) {
+  const s = Math.floor(ms / 1000);
+  if (s < 60)  return `${s}s`;
+  return `${Math.floor(s/60)}m ${s%60}s`;
+}
+function fileExt(name) {
+  const dot = name.lastIndexOf('.');
+  return dot > 0 ? name.slice(dot+1).toUpperCase().slice(0,4) : '???';
+}
+function sanitizeName(name) {
+  return String(name).replace(ALLOWED_FNAME, '_').slice(0, 200) || 'file';
+}
+
+/* ─── Status badge ─── */
+function setStatus(label, type = '') {
+  setText('status-label', label);
+  const badge = el('status-badge');
+  badge.className = 'status-badge' + (type ? ' ' + type : '');
+}
+
+/* ─── State transitions ─── */
+const stateIds = ['state-upload','state-share','state-transfer','state-done','state-error'];
+
+function showState(name) {
+  stateIds.forEach(id => {
+    const node = el(id);
+    if (!node.classList.contains('hidden')) {
+      node.classList.add('fade-out');
+      setTimeout(() => { node.classList.add('hidden'); node.classList.remove('fade-out'); }, 280);
+    }
+  });
+  setTimeout(() => {
+    const target = el('state-' + name);
+    target.classList.remove('hidden');
+    target.classList.add('fade-in');
+  }, 300);
+  currentState = name;
+  isActive = (name === 'share' || name === 'transfer');
+}
+
+/* ─── Warn on leave ─── */
+window.addEventListener('beforeunload', e => {
+  if (isActive) { e.preventDefault(); e.returnValue = ''; }
+});
+
+/* ════════════════════════════════════════
+   FILE QUEUE
+═════════════════════════════════════════ */
+function fileTypeColor(ext) {
+  const map = { PDF:'#fca5a5', ZIP:'#fcd34d', RAR:'#fcd34d', MP4:'#a78bfa', MOV:'#a78bfa',
+                MP3:'#6ee7b7', PNG:'#93c5fd', JPG:'#93c5fd', JPEG:'#93c5fd', GIF:'#f9a8d4',
+                SVG:'#f9a8d4', DOC:'#60a5fa', DOCX:'#60a5fa', XLS:'#6ee7b7', XLSX:'#6ee7b7',
+                TXT:'#e2e8f0', JS:'#fcd34d', TS:'#60a5fa', PY:'#93c5fd', HTML:'#fb923c' };
+  return map[ext] || 'var(--accent)';
+}
+
+function rebuildFileQueue() {
+  const container = el('file-queue');
+  clearChildren(container);
+
+  if (fileQueue.length === 0) {
+    el('upload-footer').classList.add('hidden');
+    return;
+  }
+  el('upload-footer').classList.remove('hidden');
+  setText('queue-summary', `${fileQueue.length} file${fileQueue.length > 1 ? 's' : ''} · ${fmtBytes(fileQueue.reduce((a,f) => a+f.size, 0))}`);
+
+  fileQueue.forEach((file, idx) => {
+    const ext = fileExt(file.name);
+    const row = mk('div', { class: 'file-item', role: 'listitem' });
+
+    const icon = mk('div', { class: 'file-item-icon' });
+    icon.style.color = fileTypeColor(ext);
+    icon.textContent = ext;
+
+    const info = mk('div', { class: 'file-item-info' });
+    const name = mk('div', { class: 'file-item-name', text: file.name, title: file.name });
+    const meta = mk('div', { class: 'file-item-meta', text: fmtBytes(file.size) });
+    info.appendChild(name); info.appendChild(meta);
+
+    const rem = mk('button', { class: 'file-item-remove', title: 'Remove file', 'aria-label': `Remove ${file.name}` });
+    rem.appendChild(svgIcon('M18 6L6 18M6 6l12 12', 14));
+    rem.addEventListener('click', () => { fileQueue.splice(idx, 1); rebuildFileQueue(); });
+
+    row.appendChild(icon); row.appendChild(info); row.appendChild(rem);
+    container.appendChild(row);
+  });
+}
+
+function addFiles(files) {
+  let rejected = 0;
+  Array.from(files).forEach(f => {
+    if (fileQueue.length >= MAX_FILES) { rejected++; return; }
+    if (f.size > MAX_FILE_SIZE) { showToast(`${f.name} exceeds 10 GB limit`, 'error'); return; }
+    if (fileQueue.find(x => x.name === f.name && x.size === f.size)) return; // dedupe
+    fileQueue.push(f);
+  });
+  if (rejected) showToast(`Max ${MAX_FILES} files per session`, 'warn');
+  rebuildFileQueue();
+}
+
+/* ─── Dropzone events ─── */
+const dropzone = el('dropzone');
+const fileInput = el('file-input');
+
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag-active'); });
+dropzone.addEventListener('dragleave', e => { if (!dropzone.contains(e.relatedTarget)) dropzone.classList.remove('drag-active'); });
+dropzone.addEventListener('drop', e => {
+  e.preventDefault(); dropzone.classList.remove('drag-active');
+  if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
+});
+dropzone.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') fileInput.click(); });
+fileInput.addEventListener('change', e => { if (e.target.files.length) { addFiles(e.target.files); e.target.value = ''; } });
+
+/* ─── Options (radio/checkbox logic, no innerHTML) ─── */
+let selectedSpeed = 'safe'; // 'safe' | 'fast'
+
+function setSpeedMode(mode) {
+  selectedSpeed = mode;
+  isFastMode    = (mode === 'fast');
+  const speedCard = el('opt-speed'), fastCard = el('opt-fast');
+  const speedCheck = el('check-speed'), fastCheck = el('check-fast');
+
+  speedCard.classList.toggle('active', mode === 'safe');
+  fastCard.classList.toggle('active',  mode === 'fast');
+  speedCard.setAttribute('aria-checked', mode === 'safe');
+  fastCard.setAttribute('aria-checked',  mode === 'fast');
+
+  clearChildren(speedCheck); clearChildren(fastCheck);
+  if (mode === 'safe') {
+    speedCheck.appendChild(svgIcon('M20 6L9 17 4 12', 10, { strokeWidth: '3.5' }));
+  } else {
+    fastCheck.appendChild(svgIcon('M20 6L9 17 4 12', 10, { strokeWidth: '3.5' }));
+  }
+}
+
+let optNotify = false;
+el('opt-speed').addEventListener('click', () => setSpeedMode('safe'));
+el('opt-fast').addEventListener('click',  () => setSpeedMode('fast'));
+el('opt-speed').addEventListener('keydown', e => { if (e.key === 'Enter'||e.key===' ') setSpeedMode('safe'); });
+el('opt-fast').addEventListener('keydown',  e => { if (e.key === 'Enter'||e.key===' ') setSpeedMode('fast'); });
+
+el('opt-notify').addEventListener('click', () => {
+  optNotify = !optNotify;
+  el('opt-notify').classList.toggle('active', optNotify);
+  el('opt-notify').setAttribute('aria-checked', optNotify);
+  const chk = el('check-notify');
+  clearChildren(chk);
+  if (optNotify) chk.appendChild(svgIcon('M20 6L9 17 4 12', 10, { strokeWidth:'3.5' }));
+  if (optNotify && Notification.permission === 'default') Notification.requestPermission();
+});
+
+setSpeedMode('safe'); // default
+
+/* ─── Share button ─── */
+el('btn-share').addEventListener('click', () => {
+  if (fileQueue.length === 0) { showToast('Add at least one file first', 'warn'); return; }
+  if (!peer || !peer.id) { showToast('Still connecting to signaling server…', 'warn'); return; }
+  generateShareLink();
+});
+
+/* ═════════════════════════════════
+   SHARE STATE
+══════════════════════════════════ */
+function generateShareLink() {
+  shareUrl = window.location.href.split('?')[0] + '?peer=' + encodeURIComponent(peer.id);
+  setText('share-url-display', shareUrl);
+
+  new QRious({
+    element: el('qrcode'),
+    value: shareUrl,
+    size: 220,
+    level: 'H',
+    foreground: '#0e0e0f',
+    background: '#ffffff'
+  });
+
+  // Build waiting file list
+  const list = el('waiting-file-list');
+  clearChildren(list);
+  fileQueue.forEach(f => {
+    const row = mk('div', { class: 'waiting-file-row' });
+    const ext  = mk('div', { class: 'file-item-icon', text: fileExt(f.name) });
+    ext.style.color = fileTypeColor(fileExt(f.name));
+    const info = mk('div', { class: 'file-item-info' });
+    const n = mk('div', { class: 'file-item-name', text: f.name });
+    const m = mk('div', { class: 'file-item-meta', text: fmtBytes(f.size) });
+    info.appendChild(n); info.appendChild(m);
+    const badge = mk('div', { class: 'waiting-badge', text: 'Waiting' });
+    row.appendChild(ext); row.appendChild(info); row.appendChild(badge);
+    list.appendChild(row);
+  });
+
+  showState('share');
+  startSessionTimeout();
+
+  // Update peer-id display
+  el('peer-id-display').textContent = 'ID: ' + peer.id;
+}
+
+/* ─── Session timeout countdown ─── */
+function startSessionTimeout() {
+  timeoutRemaining = SESSION_TIMEOUT;
+  clearInterval(timeoutTimer);
+  timeoutTimer = setInterval(() => {
+    timeoutRemaining--;
+    setText('timeout-secs', timeoutRemaining);
+    el('timeout-bar').style.width = (timeoutRemaining / SESSION_TIMEOUT * 100) + '%';
+    if (timeoutRemaining <= 0) {
+      clearInterval(timeoutTimer);
+      if (currentState === 'share') {
+        triggerError('Session expired', 'No one connected within 5 minutes. Generate a new link.', 'ERR_TIMEOUT');
+        if (peer) peer.destroy();
+      }
+    }
+  }, 1000);
+}
+function stopSessionTimeout() { clearInterval(timeoutTimer); }
+
+el('btn-copy-link').addEventListener('click', copyLink);
+el('qr-copy-overlay').addEventListener('click', copyLink);
+el('qr-copy-overlay').addEventListener('keydown', e => { if (e.key==='Enter') copyLink(); });
+
+function copyLink() {
+  if (!shareUrl) return;
+  navigator.clipboard.writeText(shareUrl).then(() => showToast('Link copied to clipboard!', 'success')).catch(() => showToast('Copy failed — select the URL manually', 'error'));
+}
+
+el('btn-cancel-share').addEventListener('click', () => {
+  stopSessionTimeout();
+  if (peer) peer.destroy();
+  window.location.href = window.location.pathname;
+});
+
+/* ═════════════════════════════════
+   TRANSFER STATE
+══════════════════════════════════ */
+
+/* ─── Pause / Resume ─── */
+el('btn-pause').addEventListener('click', togglePause);
+function togglePause() {
+  isPaused = !isPaused;
+  const ns = 'http://www.w3.org/2000/svg';
+  const icon = el('pause-icon');
+  clearChildren(icon);
+  if (isPaused) {
+    // Show play icon
+    const p = document.createElementNS(ns, 'polygon');
+    p.setAttribute('points', '5 3 19 12 5 21 5 3');
+    p.setAttribute('stroke', 'currentColor'); p.setAttribute('stroke-width','2.5');
+    p.setAttribute('fill', 'none');
+    icon.appendChild(p);
+    setText('pause-label', 'Resume');
+    showToast('Transfer paused — receiver is waiting', 'warn');
+    if (pausePromiseResolve) { /* already waiting */ }
+  } else {
+    // Show pause icon
+    ['M6 4h4v16H6z','M14 4h4v16h-4z'].forEach(d => {
+      const r = document.createElementNS(ns, 'rect');
+      if (d.includes('6 4')) { r.setAttribute('x','6'); r.setAttribute('y','4'); r.setAttribute('width','4'); r.setAttribute('height','16'); }
+      else { r.setAttribute('x','14'); r.setAttribute('y','4'); r.setAttribute('width','4'); r.setAttribute('height','16'); }
+      r.setAttribute('stroke','currentColor'); r.setAttribute('stroke-width','0');
+      r.setAttribute('fill','currentColor');
+      icon.appendChild(r);
+    });
+    setText('pause-label', 'Pause');
+    showToast('Transfer resumed', 'success');
+    if (pausePromiseResolve) { pausePromiseResolve(); pausePromiseResolve = null; }
+  }
+}
+
+function waitIfPaused() {
+  if (!isPaused) return Promise.resolve();
+  return new Promise(res => { pausePromiseResolve = res; });
+}
+
+/* ─── Cancel with confirm ─── */
+el('btn-cancel-transfer').addEventListener('click', () => { el('cancel-modal').classList.remove('hidden'); });
+el('cancel-modal-no').addEventListener('click',  () => { el('cancel-modal').classList.add('hidden'); });
+el('cancel-modal-yes').addEventListener('click', () => {
+  el('cancel-modal').classList.add('hidden');
+  doCancel();
+});
+
+function doCancel() {
+  try { if (connection) connection.send({ type: 'cancel' }); } catch(_) {}
+  setTimeout(() => { try { if (connection) connection.close(); } catch(_) {} }, 300);
+  triggerError('Transfer aborted', 'You cancelled the transfer. The receiver was notified.', 'ERR_USER_CANCEL');
+}
+
+/* ─── Transfer queue UI ─── */
+function buildTransferQueue() {
+  const container = el('transfer-queue-list');
+  clearChildren(container);
+  if (fileQueue.length <= 1) return; // no list for single file
+  fileQueue.forEach((f, i) => {
+    const row = mk('div', { class: 'tq-row', id: `tq-${i}` });
+    const ext = mk('div', { class: 'file-item-icon', text: fileExt(f.name) });
+    ext.style.color = fileTypeColor(fileExt(f.name));
+    ext.style.width = '30px'; ext.style.height = '30px'; ext.style.fontSize = '11px';
+    const name = mk('div', { class: 'file-item-name', text: f.name, style: 'font-size:13px;flex:1;min-width:0;' });
+    const barWrap = mk('div', { class: 'tq-mini-bar' });
+    const barFill = mk('div', { class: 'tq-mini-fill', id: `tq-fill-${i}` });
+    barWrap.appendChild(barFill);
+    const meta = mk('div', { class: 'file-item-meta', text: fmtBytes(f.size), style: 'white-space:nowrap;' });
+    row.appendChild(ext); row.appendChild(name); row.appendChild(barWrap); row.appendChild(meta);
+    container.appendChild(row);
+  });
+}
+
+function updateTransferQueue(fileIdx, pct) {
+  const fill = el(`tq-fill-${fileIdx}`);
+  if (!fill) return;
+  fill.style.width = pct + '%';
+  const row  = el(`tq-${fileIdx}`);
+  if (!row) return;
+  if (pct >= 100) {
+    row.classList.remove('active'); row.classList.add('done');
+  } else {
+    row.classList.add('active');
+  }
+}
+
+/* ─── Elapsed timer ─── */
+function startElapsedTimer() {
+  startTime = Date.now(); lastTime = startTime; lastBytes = 0;
+  clearInterval(elapsedTimer);
+  elapsedTimer = setInterval(() => {
+    setText('info-elapsed', fmtElapsed(Date.now() - startTime));
+  }, 1000);
+}
+function stopElapsedTimer() { clearInterval(elapsedTimer); }
+
+/* ─── Progress UI ─── */
+function updateProgressUI(current, total, fileIdx) {
+  const pct = total > 0 ? Math.min(100, Math.round(current / total * 100)) : 0;
+  el('progress-bar').style.width = pct + '%';
+  el('progress-bar').setAttribute('aria-valuenow', pct);
+  setText('progress-text', pct + '%');
+  setText('progress-bytes', `${fmtBytes(current)} / ${fmtBytes(total)}`);
+  if (fileIdx !== undefined) updateTransferQueue(fileIdx, pct);
+
+  // Speed / ETA
+  const now = Date.now();
+  if (now - lastTime >= 800) {
+    const delta = current - lastBytes;
+    const dt = (now - lastTime) / 1000;
+    const speed = delta / dt;
+    const speedMBs = (speed / (1024*1024));
+    el('transfer-speed').textContent = speedMBs >= 0.1 ? speedMBs.toFixed(1) + ' MB/s' : (speed/1024).toFixed(0) + ' KB/s';
+    const remaining = total - current;
+    if (speed > 0) setText('transfer-eta', fmtTime(remaining / speed) + ' left');
+    lastTime  = now;
+    lastBytes = current;
+  }
+}
+
+function updateChunkInfo() {
+  chunkCount++;
+  setText('info-chunks', chunkCount + ' chunks');
+}
+
+/* ─── Done state ─── */
+function showDone(meta) {
+  transferSummary = meta;
+  stopElapsedTimer();
+  const box = el('done-summary');
+  clearChildren(box);
+  const rows = [
+    ['Files transferred', String(meta.fileCount)],
+    ['Total size',        fmtBytes(meta.totalBytes)],
+    ['Duration',          fmtElapsed(meta.duration)],
+    ['Avg speed',         meta.avgSpeed],
+    ['Transfer mode',     isFastMode ? 'Fast' : 'Safe (throttled)'],
+  ];
+  rows.forEach(([k, v]) => {
+    const r = mk('div', { class: 'done-summary-row' });
+    r.appendChild(mk('span', { text: k }));
+    r.appendChild(mk('span', { text: v }));
+    box.appendChild(r);
+  });
+  isActive = false;
+  showState('done');
+  if (peer) { try { peer.destroy(); } catch(_) {} }
+}
+
+el('btn-send-another').addEventListener('click', () => window.location.href = window.location.pathname);
+el('btn-share-again').addEventListener('click',  () => window.location.href = window.location.pathname);
+el('btn-retry').addEventListener('click',    () => window.location.href = window.location.pathname);
+el('btn-go-home').addEventListener('click',  () => window.location.href = window.location.pathname);
+
+/* ─── Error state ─── */
+function triggerError(title, msg, code = '') {
+  stopElapsedTimer(); stopSessionTimeout();
+  isActive = false;
+  try { if (connection) connection.close(); } catch(_) {}
+
+  setText('error-title', title);
+  setText('error-msg',   msg);
+  const detail = el('error-detail');
+  clearChildren(detail);
+  if (code) {
+    const c = mk('div', { text: 'Code: ' + code });
+    const t = mk('div', { text: 'Time: ' + new Date().toLocaleTimeString() });
+    detail.appendChild(c); detail.appendChild(t);
+    detail.style.display = 'block';
+  } else {
+    detail.style.display = 'none';
+  }
+  showState('error');
+}
+
+/* ─── Desktop notification ─── */
+function notify(title, body) {
+  if (!notifyOnConnect) return;
+  if (Notification.permission === 'granted') new Notification(title, { body, icon: '' });
+}
+
+/* ════════════════════════════════════════
+   WEBRTC — PEERJS
+═════════════════════════════════════════ */
+setStatus('Initializing', '');
+peer = new Peer({ debug: 0 });
+
+peer.on('open', (id) => {
+  setStatus('Ready', 'ready');
+
+  if (connectToId) {
+    // ─── RECEIVER ───
+    initReceiver(connectToId);
+  } else {
+    // ─── SENDER ───
+    showState('upload');
+    setStatus('Ready to share', 'ready');
+  }
+});
+
+peer.on('error', (err) => {
+  console.warn('PeerJS error:', err.type, err.message);
+  setStatus('Error', 'danger');
+  if (err.type === 'network' || err.type === 'server-error') {
+    triggerError('Signaling server unreachable', 'Could not reach the PeerJS matchmaking server. Check your network connection.', 'ERR_SIGNAL');
+  } else if (err.type === 'peer-unavailable') {
+    triggerError('Sender not found', 'The sender is no longer online or the link has expired.', 'ERR_PEER_GONE');
+  } else if (err.type === 'browser-incompatible') {
+    triggerError('Browser not supported', 'Your browser does not support WebRTC. Try a modern Chromium-based browser or Firefox.', 'ERR_BROWSER');
+  } else {
+    showToast('Connection error: ' + err.type, 'error');
+  }
+});
+
+peer.on('disconnected', () => {
+  setStatus('Offline', 'danger');
+  if (currentState === 'share' || currentState === 'transfer') {
+    showToast('Signaling server disconnected', 'warn');
+  }
+});
+
+/* ═════════════════════════════════
+   RECEIVER
+══════════════════════════════════ */
+function initReceiver(peerId) {
+  showState('transfer');
+  setText('transfer-status', 'Connecting…');
+  setText('transfer-filename', 'Waiting for sender…');
+  setStatus('Connecting', 'warn');
+
+  connection = peer.connect(decodeURIComponent(peerId), { reliable: true, serialization: 'binary' });
+
+  let receivedBuffers = [];
+  let fileMeta        = null;
+  let receivedSize    = 0;
+  let filesDone       = 0;
+  let totalFilesExpected = 1;
+  let overallReceived = 0;
+  let overallTotal    = 0;
+
+  connection.on('open', () => {
+    setStatus('Connected', 'ready');
+    setText('transfer-status', 'Connected');
+    setText('transfer-filename', 'Awaiting file headers…');
+    startElapsedTimer();
+  });
+
+  connection.on('data', (data) => {
+    if (!data || typeof data !== 'object') return;
+
+    switch (data.type) {
+      case 'session': {
+        totalFilesExpected = data.fileCount || 1;
+        overallTotal = data.totalSize || 0;
+        setText('transfer-status', `Receiving ${totalFilesExpected} file${totalFilesExpected>1?'s':''}`);
+        connection.send({ type: 'ack-session' });
+        break;
+      }
+      case 'header': {
+        fileMeta = {
+          name:     sanitizeName(String(data.name || 'file')),
+          filetype: String(data.filetype || 'application/octet-stream').slice(0, 100),
+          size:     Math.min(Number(data.size) || 0, MAX_FILE_SIZE),
+          index:    Number(data.index) || 0,
         };
-        let currentState = null;
-        let isTransferringOrSharing = false;
+        receivedBuffers = [];
+        receivedSize    = 0;
+        totalSize       = fileMeta.size;
+        setText('transfer-status', `Downloading (${fileMeta.index+1}/${totalFilesExpected})`);
+        setText('transfer-filename', fileMeta.name);
+        el('progress-bar').style.width = '0%';
+        connection.send({ type: 'ack-header' });
+        break;
+      }
+      case 'chunk': {
+        if (!fileMeta || !(data.data instanceof ArrayBuffer)) return;
+        receivedBuffers.push(data.data);
+        receivedSize    += data.data.byteLength;
+        overallReceived += data.data.byteLength;
+        updateProgressUI(receivedSize, fileMeta.size, fileMeta.index);
+        updateChunkInfo();
+        connection.send({ type: 'ack-chunk' });
+        break;
+      }
+      case 'done-file': {
+        if (!fileMeta) return;
+        setText('transfer-status', 'Saving file…');
+        const blob = new Blob(receivedBuffers, { type: fileMeta.filetype });
+        const url  = URL.createObjectURL(blob);
+        const a    = mk('a', { href: url, download: fileMeta.name, style: 'display:none' });
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => { URL.revokeObjectURL(url); document.body.removeChild(a); }, 2000);
+        receivedBuffers = [];
+        filesDone++;
+        updateProgressUI(fileMeta.size, fileMeta.size, fileMeta.index);
+        connection.send({ type: 'ack-done-file' });
+        break;
+      }
+      case 'done-all': {
+        const duration = Date.now() - startTime;
+        const avg = overallTotal > 0 ? ((overallTotal / duration) * 1000 / 1024 / 1024).toFixed(1) + ' MB/s' : '—';
+        showDone({ fileCount: filesDone, totalBytes: overallTotal || overallReceived, duration, avgSpeed: avg });
+        break;
+      }
+      case 'cancel': {
+        triggerError('Transfer cancelled', 'The sender aborted the transfer.', 'ERR_REMOTE_CANCEL');
+        break;
+      }
+    }
+  });
 
-        function showState(stateName) {
-            Object.values(states).forEach(el => {
-                if(!el.classList.contains('hidden')) {
-                    el.classList.replace('fade-in', 'fade-out');
-                    setTimeout(() => el.classList.add('hidden'), 300);
-                }
-            });
-            setTimeout(() => {
-                states[stateName].classList.remove('hidden', 'fade-out');
-                states[stateName].classList.add('fade-in');
-            }, 300);
-            currentState = stateName;
-            isTransferringOrSharing = (stateName === 'share' || stateName === 'transfer');
+  connection.on('close', () => {
+    if (currentState === 'transfer') {
+      triggerError('Connection lost', 'The sender disconnected before the transfer completed.', 'ERR_DISCONNECT');
+    }
+  });
+  connection.on('error', (err) => {
+    console.warn('Connection error:', err);
+    triggerError('Connection error', 'A WebRTC data channel error occurred.', 'ERR_CHANNEL');
+  });
+}
+
+/* ═════════════════════════════════
+   SENDER
+══════════════════════════════════ */
+peer.on('connection', (conn) => {
+  if (currentState !== 'share') { try { conn.close(); } catch(_){} return; }
+  stopSessionTimeout();
+  connection = conn;
+  notify('DropZone', 'Someone connected and is ready to receive your files.');
+
+  conn.on('open', async () => {
+    setStatus('Transferring', 'ready');
+    showState('transfer');
+    buildTransferQueue();
+    startElapsedTimer();
+    isPaused = false;
+    chunkCount = 0;
+
+    const totalBytes = fileQueue.reduce((a,f) => a+f.size, 0);
+    totalSize = totalBytes;
+    setText('info-peer', '⬤ P2P');
+
+    // Send session metadata
+    conn.send({ type: 'session', fileCount: fileQueue.length, totalSize: totalBytes });
+
+    // Wait for session ack
+    const ackSession = await waitForAck(conn, 'ack-session', 10000);
+    if (!ackSession) { triggerError('Handshake failed', 'Receiver did not acknowledge session start.', 'ERR_HANDSHAKE'); return; }
+
+    let overallSent = 0;
+
+    for (let fileIdx = 0; fileIdx < fileQueue.length; fileIdx++) {
+      const file = fileQueue[fileIdx];
+      if (!connection || currentState !== 'transfer') break;
+
+      setText('transfer-status', `Sending (${fileIdx+1}/${fileQueue.length})`);
+      setText('transfer-filename', file.name);
+
+      // Send header
+      conn.send({ type: 'header', name: file.name, filetype: file.type || 'application/octet-stream', size: file.size, index: fileIdx });
+      const ackHeader = await waitForAck(conn, 'ack-header', 8000);
+      if (!ackHeader) { triggerError('Handshake failed', 'Receiver did not acknowledge file header.', 'ERR_HEADER_ACK'); return; }
+
+      // Send chunks
+      const CHUNK = isFastMode ? CHUNK_SIZE_FAST : CHUNK_SIZE_SAFE;
+      let offset  = 0;
+
+      while (offset < file.size) {
+        if (currentState !== 'transfer') return;
+        await waitIfPaused();
+
+        const slice = file.slice(offset, offset + CHUNK);
+        const buf   = await slice.arrayBuffer();
+        conn.send({ type: 'chunk', data: buf });
+
+        offset      += buf.byteLength;
+        overallSent += buf.byteLength;
+        updateProgressUI(offset, file.size, fileIdx);
+        updateChunkInfo();
+        setText('info-chunks', chunkCount + ' chunks');
+
+        // Throttle in safe mode
+        if (!isFastMode) await sleep(THROTTLE_DELAY);
+
+        // Wait for ack in safe mode (flow control)
+        if (!isFastMode) {
+          const ackChunk = await waitForAck(conn, 'ack-chunk', 15000);
+          if (!ackChunk) { if (currentState === 'transfer') triggerError('Transfer stalled', 'Receiver stopped responding.', 'ERR_STALL'); return; }
         }
+      }
 
-        function showToast(message, type = 'normal') {
-            const toast = document.createElement('div');
-            const bgColor = type === 'error' ? 'bg-danger' : 'bg-slate-800';
-            toast.className = `${bgColor} text-white px-6 py-3 rounded-full font-medium shadow-xl shadow-black/50 fade-in border border-white/10`;
-            toast.innerText = message;
-            document.getElementById('toast-container').appendChild(toast);
-            setTimeout(() => {
-                toast.classList.replace('fade-in', 'fade-out');
-                setTimeout(() => toast.remove(), 300);
-            }, 3000);
-        }
+      // Signal this file is done
+      conn.send({ type: 'done-file', index: fileIdx });
+      const ackFile = await waitForAck(conn, 'ack-done-file', 10000);
+      if (!ackFile) { if (currentState === 'transfer') triggerError('Transfer stalled', 'Receiver did not confirm file receipt.', 'ERR_STALL'); return; }
+    }
 
-        function formatBytes(bytes) {
-            if (bytes === 0) return '0 B';
-            const k = 1024;
-            const sizes = ['B', 'KB', 'MB', 'GB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-        }
+    // All files done
+    conn.send({ type: 'done-all' });
+    const duration = Date.now() - startTime;
+    const avg = totalBytes > 0 ? ((totalBytes / duration) * 1000 / 1024 / 1024).toFixed(1) + ' MB/s' : '—';
+    showDone({ fileCount: fileQueue.length, totalBytes, duration, avgSpeed: avg });
+  });
 
-        function sanitizeFilename(name) {
-            // Prevent path traversal and remove malicious characters
-            return name.replace(/[^a-zA-Z0-9.\-_ ()]/g, '_');
-        }
+  conn.on('data', (data) => {
+    if (data && data.type === 'cancel') {
+      triggerError('Transfer cancelled', 'The receiver cancelled the download.', 'ERR_REMOTE_CANCEL');
+    }
+    // ack data is handled inside waitForAck resolvers
+  });
 
-        // --- Warn before closing tab ---
-        window.addEventListener('beforeunload', (e) => {
-            if (isTransferringOrSharing) {
-                e.preventDefault();
-                e.returnValue = 'Transfer in progress. Are you sure you want to leave?';
-            }
-        });
+  conn.on('close', () => {
+    if (currentState === 'transfer') {
+      triggerError('Connection lost', 'The receiver disconnected before all files were received.', 'ERR_DISCONNECT');
+    }
+  });
+  conn.on('error', (err) => {
+    console.warn('conn error:', err);
+    if (currentState === 'transfer') triggerError('Connection error', 'WebRTC channel error.', 'ERR_CHANNEL');
+  });
+});
 
-        // --- WebRTC Logic ---
-        let peer = null;
-        let connection = null;
-        let fileToShare = null;
-        const CHUNK_SIZE = 256 * 1024; // 256KB chunks
-        let shareUrl = "";
-        
-        // Metrics state
-        let startTime = 0;
-        let lastUpdateTime = 0;
-        let bytesSinceLastUpdate = 0;
+/* ─── Ack-based flow control ─── */
+function waitForAck(conn, type, timeout = 8000) {
+  return new Promise((resolve) => {
+    if (!conn) { resolve(false); return; }
+    let resolved = false;
+    const handler = (data) => {
+      if (data && data.type === type) {
+        resolved = true;
+        conn.off('data', handler);
+        resolve(true);
+      }
+    };
+    conn.on('data', handler);
+    setTimeout(() => {
+      if (!resolved) { conn.off('data', handler); resolve(false); }
+    }, timeout);
+  });
+}
 
-        // URL Params to detect Receiver
-        const urlParams = new URLSearchParams(window.location.search);
-        const connectToId = urlParams.get('peer');
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-        function updateNetworkStatus(status, colorClass) {
-            document.getElementById('status-dot').className = `relative inline-flex rounded-full h-2.5 w-2.5 bg-${colorClass}`;
-            document.getElementById('status-dot').previousElementSibling.className = `animate-ping absolute inline-flex h-full w-full rounded-full bg-${colorClass} opacity-75`;
-            document.getElementById('connection-status').childNodes[2].nodeValue = " " + status;
-        }
-
-        function triggerError(title, msg) {
-            document.getElementById('error-title').innerText = title;
-            document.getElementById('error-msg').innerText = msg;
-            showState('error');
-            if(connection) connection.close();
-            isTransferringOrSharing = false;
-        }
-
-        function cancelTransfer() {
-            if (connection) {
-                connection.send({ type: 'cancel' });
-                setTimeout(() => connection.close(), 500);
-            }
-            triggerError("Transfer Cancelled", "You aborted the file transfer.");
-        }
-
-        function copyShareLink() {
-            navigator.clipboard.writeText(shareUrl).then(() => showToast('Link copied to clipboard!'));
-        }
-
-        function calculateMetrics(currentBytes, totalBytes) {
-            const now = Date.now();
-            if (now - lastUpdateTime > 1000) { // Update stats every 1 second
-                const elapsedSec = (now - startTime) / 1000;
-                
-                // Speed (MB/s)
-                const speedBps = bytesSinceLastUpdate / ((now - lastUpdateTime) / 1000);
-                const speedMbps = (speedBps / (1024 * 1024)).toFixed(1);
-                document.getElementById('transfer-speed').innerText = `${speedMbps} MB/s`;
-
-                // ETA
-                const remainingBytes = totalBytes - currentBytes;
-                const overallSpeed = currentBytes / elapsedSec;
-                if (overallSpeed > 0) {
-                    let etaSec = Math.round(remainingBytes / overallSpeed);
-                    if (etaSec > 60) {
-                        document.getElementById('transfer-eta').innerText = `${Math.floor(etaSec/60)}m ${etaSec%60}s left`;
-                    } else {
-                        document.getElementById('transfer-eta').innerText = `${etaSec}s left`;
-                    }
-                }
-
-                lastUpdateTime = now;
-                bytesSinceLastUpdate = 0;
-            }
-        }
-
-        function updateProgressUI(current, total) {
-            bytesSinceLastUpdate += CHUNK_SIZE;
-            const percent = Math.min(100, Math.round((current / total) * 100));
-            document.getElementById('progress-bar').style.width = percent + '%';
-            document.getElementById('progress-text').innerText = percent + '%';
-            document.getElementById('progress-bytes').innerText = `${formatBytes(current)} / ${formatBytes(total)}`;
-            calculateMetrics(current, total);
-        }
-
-        // INIT PEERJS
-        peer = new Peer({ debug: 1 });
-
-        peer.on('open', (id) => {
-            updateNetworkStatus("Ready", "success");
-            
-            if (connectToId) {
-                // --- RECEIVER LOGIC ---
-                showState('transfer');
-                document.getElementById('transfer-status').innerText = "Connecting...";
-                
-                connection = peer.connect(connectToId, { reliable: true });
-
-                connection.on('open', () => {
-                    document.getElementById('transfer-status').innerText = "Awaiting File...";
-                });
-
-                let receivedBuffers = [];
-                let fileMeta = null;
-                let receivedSize = 0;
-
-                connection.on('data', (data) => {
-                    if (data.type === 'header') {
-                        fileMeta = data;
-                        fileMeta.name = sanitizeFilename(fileMeta.name); // Sanitize on receipt
-                        receivedBuffers = [];
-                        receivedSize = 0;
-                        startTime = Date.now();
-                        lastUpdateTime = startTime;
-                        
-                        document.getElementById('transfer-status').innerText = `Downloading`;
-                        document.getElementById('transfer-filename').innerText = fileMeta.name;
-                        connection.send({ type: 'ack-header' });
-                    } 
-                    else if (data.type === 'chunk') {
-                        receivedBuffers.push(data.data);
-                        receivedSize += data.data.byteLength;
-                        updateProgressUI(receivedSize, fileMeta.size);
-                        connection.send({ type: 'ack-chunk' });
-                    } 
-                    else if (data.type === 'done') {
-                        document.getElementById('transfer-status').innerText = "Assembling...";
-                        const blob = new Blob(receivedBuffers, { type: fileMeta.filetype });
-                        const url = window.URL.createObjectURL(blob);
-                        
-                        const a = document.createElement('a');
-                        a.style.display = 'none';
-                        a.href = url;
-                        a.download = fileMeta.name;
-                        document.body.appendChild(a);
-                        a.click();
-                        window.URL.revokeObjectURL(url);
-                        
-                        isTransferringOrSharing = false;
-                        showState('done');
-                        peer.destroy();
-                    }
-                    else if (data.type === 'cancel') {
-                        triggerError("Cancelled", "The sender cancelled the transfer.");
-                    }
-                });
-                
-                connection.on('close', () => {
-                    if(currentState === 'transfer' && receivedSize < (fileMeta?.size || 1)) {
-                        triggerError("Connection Lost", "The sender disconnected before completion.");
-                    }
-                });
-
-                connection.on('error', () => triggerError("Error", "A peer-to-peer connection error occurred."));
-            } else {
-                // --- SENDER LOGIC ---
-                showState('upload');
-                
-                const dropzone = document.getElementById('dropzone');
-                const fileInput = document.getElementById('file-input');
-
-                dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag-active'); });
-                dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-active'));
-                dropzone.addEventListener('drop', e => {
-                    e.preventDefault();
-                    dropzone.classList.remove('drag-active');
-                    if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
-                });
-                fileInput.addEventListener('change', e => {
-                    if (e.target.files.length) handleFile(e.target.files[0]);
-                });
-
-                function handleFile(file) {
-                    fileToShare = file;
-                    document.getElementById('filename-display').innerText = file.name;
-                    document.getElementById('filesize-display').innerText = formatBytes(file.size);
-                    showState('share');
-
-                    shareUrl = window.location.href.split('?')[0] + '?peer=' + peer.id;
-                    
-                    new QRious({
-                        element: document.getElementById('qrcode'),
-                        value: shareUrl,
-                        size: 250,
-                        level: 'H',
-                        foreground: '#0f172a'
-                    });
-                }
-
-                peer.on('connection', (conn) => {
-                    connection = conn;
-                    
-                    connection.on('open', () => {
-                        showState('transfer');
-                        document.getElementById('transfer-status').innerText = "Sending";
-                        document.getElementById('transfer-filename').innerText = fileToShare.name;
-                        
-                        startTime = Date.now();
-                        lastUpdateTime = startTime;
-
-                        connection.send({
-                            type: 'header',
-                            name: fileToShare.name,
-                            filetype: fileToShare.type,
-                            size: fileToShare.size
-                        });
-                    });
-
-                    let offset = 0;
-
-                    connection.on('data', (data) => {
-                        if (data.type === 'ack-header' || data.type === 'ack-chunk') {
-                            if (offset < fileToShare.size) {
-                                const slice = fileToShare.slice(offset, offset + CHUNK_SIZE);
-                                const reader = new FileReader();
-                                reader.onload = (e) => {
-                                    connection.send({ type: 'chunk', data: e.target.result });
-                                    offset += e.target.result.byteLength;
-                                    updateProgressUI(offset, fileToShare.size);
-                                };
-                                reader.readAsArrayBuffer(slice);
-                            } else {
-                                connection.send({ type: 'done' });
-                                document.getElementById('transfer-status').innerText = "Sent!";
-                                document.getElementById('transfer-speed').innerText = "";
-                                document.getElementById('transfer-eta').innerText = "";
-                                isTransferringOrSharing = false;
-                                setTimeout(() => showState('done'), 1000);
-                            }
-                        }
-                        else if (data.type === 'cancel') {
-                            triggerError("Cancelled", "The receiver cancelled the download.");
-                        }
-                    });
-
-                    connection.on('close', () => {
-                        if(currentState === 'transfer' && offset < fileToShare.size) {
-                            triggerError("Connection Lost", "The receiver disconnected early.");
-                        }
-                    });
-                });
-            }
-        });
-
-        // Global Peer Error Handling
-        peer.on('error', (err) => {
-            console.error(err);
-            updateNetworkStatus("Disconnected", "danger");
-            if (err.type === 'network' || err.type === 'server-error') {
-                triggerError("Signaling Server Error", "Could not connect to the matchmaking server.");
-            } else if (err.type === 'peer-unavailable') {
-                triggerError("Invalid Link", "The sender is no longer available or the link is invalid.");
-            } else {
-                showToast("An unexpected error occurred.", "error");
-            }
-        });
-
-        peer.on('disconnected', () => {
-            updateNetworkStatus("Offline", "danger");
-        });
-    </script>
+/* ─── Keyboard shortcuts ─── */
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    if (!el('cancel-modal').classList.contains('hidden')) {
+      el('cancel-modal').classList.add('hidden');
+    }
+  }
+  if (e.key === ' ' && currentState === 'transfer' && document.activeElement.tagName !== 'BUTTON') {
+    e.preventDefault(); togglePause();
+  }
+});
+</script>
 </body>
 </html>
