@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Secure peer-to-peer file transfer">
+    <meta name="description" content="Peer-to-peer file transfer">
     <title>DropZone — P2P Transfer</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,100..900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css">
 
     <script src="https://cdn.tailwindcss.com"></script>
@@ -20,21 +20,20 @@
                         brand: '#a8c7fa',
                         bg: '#0e0e0f',
                         surface: '#171717',
-                        elevated: '#1f1e1e',
+                        panel: '#1f1e1e',
                         success: '#34d399',
                         danger: '#f87171',
                         warning: '#fbbf24',
                     },
                     fontFamily: {
-                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        sans: ['"Inter"', 'system-ui', 'sans-serif'],
                     },
                     animation: {
                         'fade-in': 'fadeIn 0.2s ease-out forwards',
                         'fade-out': 'fadeOut 0.15s ease-in forwards',
                         'slide-up': 'slideUp 0.3s ease-out forwards',
-                        'slide-down': 'slideDown 0.25s ease-out forwards',
-                        'pulse-slow': 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-                        'scale-in': 'scaleIn 0.2s ease-out forwards',
+                        'slide-down': 'slideDown 0.2s ease-out forwards',
+                        'pulse-slow': 'pulse 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite',
                     },
                     keyframes: {
                         fadeIn: {
@@ -52,187 +51,149 @@
                         slideDown: {
                             '0%': { opacity: '0', transform: 'translateY(-8px) scale(0.97)' },
                             '100%': { opacity: '1', transform: 'translateY(0) scale(1)' },
-                        },
-                        scaleIn: {
-                            '0%': { opacity: '0', transform: 'scale(0.92)' },
-                            '100%': { opacity: '1', transform: 'scale(1)' },
-                        },
+                        }
                     }
                 }
             }
         }
     </script>
 
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js">
-    </script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js">
-    </script>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
 
     <style>
         @media (prefers-reduced-motion: reduce) {
-            *,
-            *::before,
-            *::after {
+            *, *::before, *::after {
                 animation-duration: 0.01ms !important;
                 animation-iteration-count: 1 !important;
                 transition-duration: 0.01ms !important;
             }
         }
-        ::-webkit-scrollbar {
-            width: 5px;
-            height: 5px;
-        }
-        ::-webkit-scrollbar-track {
-            background: transparent;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.06);
-            border-radius: 24px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: rgba(255, 255, 255, 0.12);
-        }
-        :focus-visible {
-            outline: 2px solid #a8c7fa80;
-            outline-offset: 2px;
-            border-radius: 8px;
-        }
-        .skip-link {
-            position: absolute;
-            top: -100px;
-            left: 16px;
-            z-index: 100;
-            background: #a8c7fa;
-            color: #0e0e0f;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-weight: 600;
-            font-size: 14px;
-            transition: top 0.2s;
-        }
-        .skip-link:focus {
-            top: 16px;
-        }
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.06); border-radius: 24px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.12); }
     </style>
+<base target="_blank">
 </head>
 <body class="bg-bg text-slate-100 font-sans antialiased min-h-screen flex flex-col selection:bg-brand selection:text-bg">
 
-    <!-- Skip Link -->
-    <a href="#main-content" class="skip-link">Skip to content</a>
-
     <!-- Toast Container -->
-    <div id="toast-container" class="fixed top-20 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-2 pointer-events-none w-full max-w-sm px-4" aria-live="polite" aria-atomic="false"></div>
-
-    <!-- Keyboard Shortcuts Help -->
-    <div id="shortcuts-help" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
-        <div class="bg-surface rounded-3xl shadow-2xl shadow-black/50 p-6 w-full max-w-sm animate-scale-in">
-            <div class="flex items-center justify-between mb-4">
-                <h3 class="text-sm font-bold text-white">Shortcuts</h3>
-                <button onclick="Keyboard.closeHelp()" class="p-1.5 hover:bg-elevated rounded-3xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50" aria-label="Close shortcuts">
-                    <i class="ph ph-x text-slate-400"></i>
-                </button>
-            </div>
-            <div class="space-y-2 text-xs">
-                <div class="flex justify-between text-slate-300"><span>Open files</span><kbd class="bg-elevated px-2 py-0.5 rounded-xl text-slate-400 font-mono">Ctrl O</kbd></div>
-                <div class="flex justify-between text-slate-300"><span>Pause / Resume</span><kbd class="bg-elevated px-2 py-0.5 rounded-xl text-slate-400 font-mono">Space</kbd></div>
-                <div class="flex justify-between text-slate-300"><span>Copy link</span><kbd class="bg-elevated px-2 py-0.5 rounded-xl text-slate-400 font-mono">Ctrl Shift C</kbd></div>
-                <div class="flex justify-between text-slate-300"><span>Download all</span><kbd class="bg-elevated px-2 py-0.5 rounded-xl text-slate-400 font-mono">Ctrl D</kbd></div>
-                <div class="flex justify-between text-slate-300"><span>Close / Back</span><kbd class="bg-elevated px-2 py-0.5 rounded-xl text-slate-400 font-mono">Esc</kbd></div>
-                <div class="flex justify-between text-slate-300"><span>Show shortcuts</span><kbd class="bg-elevated px-2 py-0.5 rounded-xl text-slate-400 font-mono">?</kbd></div>
-            </div>
-        </div>
-    </div>
+    <div id="toast-container" class="fixed top-16 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-2 pointer-events-none w-full max-w-sm px-4"></div>
 
     <!-- Navbar -->
-    <nav class="fixed top-0 left-0 right-0 z-40 bg-bg px-5 py-3.5 flex items-center justify-between" role="banner">
-        <div class="flex items-center gap-2.5 cursor-pointer" onclick="App.reset()" role="button" tabindex="0" aria-label="Reset and go home" onkeydown="if(event.key==='Enter')App.reset()">
+    <nav class="fixed top-0 left-0 right-0 z-40 bg-bg px-5 py-3 flex items-center justify-between" role="banner">
+        <div class="flex items-center gap-2.5 cursor-pointer" onclick="App.reset()" role="button" tabindex="0" aria-label="Reset application">
             <div class="bg-brand/10 text-brand p-2 rounded-3xl">
                 <i class="ph ph-lightning text-xl" aria-hidden="true"></i>
             </div>
             <span class="text-lg font-bold tracking-tight">DropZone</span>
         </div>
-        <div class="flex items-center gap-2">
-            <button id="shortcuts-toggle" class="p-2 rounded-3xl hover:bg-surface transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 text-slate-500 hover:text-slate-300 text-xs font-mono" aria-label="Keyboard shortcuts" title="Shortcuts (?)">?</button>
-            <button id="settings-toggle" class="p-2 rounded-3xl hover:bg-surface transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50" aria-label="Open settings" aria-expanded="false">
+        <div class="flex items-center gap-3">
+            <button id="settings-toggle" class="p-2 rounded-3xl hover:bg-surface transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50" aria-label="Open settings" aria-expanded="false" aria-haspopup="dialog">
                 <i class="ph ph-gear text-lg text-slate-300" aria-hidden="true"></i>
             </button>
-            <div class="flex items-center gap-2 text-sm text-slate-400" aria-live="polite">
-                <span class="relative flex h-2 w-2">
+            <div class="flex items-center gap-2 text-sm text-slate-400" aria-live="polite" aria-atomic="true">
+                <span class="relative flex h-2 w-2" aria-hidden="true">
                     <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-slate-500 opacity-75" id="status-ping"></span>
                     <span class="relative inline-flex rounded-full h-2 w-2 bg-slate-500" id="status-dot"></span>
                 </span>
-                <span id="status-text" class="hidden sm:inline">Initializing</span>
+                <span id="status-text">Initializing</span>
             </div>
         </div>
     </nav>
 
     <!-- Settings Popover -->
-    <div id="settings-popover" class="hidden fixed top-14 right-4 w-80 bg-surface rounded-3xl shadow-2xl shadow-black/60 p-5 z-50 animate-slide-up" role="dialog" aria-label="Settings">
-        <div class="flex items-center justify-between mb-4">
+    <div id="settings-popover" class="hidden fixed top-12 right-4 w-72 bg-surface rounded-3xl shadow-2xl shadow-black/70 p-5 z-50 animate-slide-down" role="dialog" aria-label="Settings" aria-modal="true">
+        <div class="flex items-center justify-between mb-5">
             <h3 class="text-sm font-bold text-white">Settings</h3>
-            <button onclick="Settings.close()" class="p-1.5 hover:bg-elevated rounded-3xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50" aria-label="Close settings">
+            <button onclick="Settings.close()" class="p-1.5 hover:bg-panel rounded-3xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50" aria-label="Close settings">
                 <i class="ph ph-x text-slate-400" aria-hidden="true"></i>
             </button>
         </div>
-        <div class="space-y-4">
+        <div class="space-y-5">
             <div>
-                <label class="text-xs text-slate-400 block mb-2" for="throttle-select">Transfer Speed</label>
+                <label class="text-xs text-slate-400 block mb-2 font-medium">Transfer Speed</label>
                 <div class="relative">
-                    <select id="throttle-select" class="w-full bg-elevated rounded-3xl px-4 py-3 text-sm text-slate-200 appearance-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 cursor-pointer">
+                    <select id="throttle-select" class="w-full bg-panel rounded-3xl px-4 py-3 text-sm text-slate-200 appearance-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 cursor-pointer">
                         <option value="0">Unlimited</option>
                         <option value="50" selected>Slow — test recovery</option>
                         <option value="200">Very Slow</option>
                         <option value="500">Glacial</option>
                     </select>
-                    <i class="ph ph-caret-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" aria-hidden="true"></i>
+                    <i class="ph ph-caret-down absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" aria-hidden="true"></i>
                 </div>
-                <p class="text-[11px] text-slate-500 mt-1.5 leading-relaxed">Slower speeds let you pause or break mid-transfer.</p>
             </div>
             <div>
-                <label class="text-xs text-slate-400 block mb-2" for="security-select">Security</label>
+                <label class="text-xs text-slate-400 block mb-2 font-medium">Security</label>
                 <div class="relative">
-                    <select id="security-select" class="w-full bg-elevated rounded-3xl px-4 py-3 text-sm text-slate-200 appearance-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 cursor-pointer">
+                    <select id="security-select" class="w-full bg-panel rounded-3xl px-4 py-3 text-sm text-slate-200 appearance-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 cursor-pointer">
                         <option value="none">Standard</option>
                         <option value="encrypt" selected>Encrypted</option>
-                        <option value="paranoid">Paranoid + Verify</option>
+                        <option value="paranoid">Paranoid</option>
                     </select>
-                    <i class="ph ph-caret-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" aria-hidden="true"></i>
+                    <i class="ph ph-caret-down absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" aria-hidden="true"></i>
                 </div>
-                <p class="text-[11px] text-slate-500 mt-1.5 leading-relaxed">Paranoid mode checksums every chunk.</p>
+            </div>
+            <div class="pt-2">
+                <button id="shortcut-help-btn" class="w-full flex items-center gap-2 text-xs text-slate-500 hover:text-slate-300 transition-colors p-2 rounded-3xl hover:bg-panel focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
+                    <i class="ph ph-keyboard" aria-hidden="true"></i>
+                    <span>Keyboard shortcuts</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Shortcut Help Modal -->
+    <div id="shortcut-modal" class="hidden fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm" role="dialog" aria-label="Keyboard shortcuts" aria-modal="true">
+        <div class="bg-surface rounded-3xl p-6 w-full max-w-sm mx-4 animate-slide-up">
+            <div class="flex items-center justify-between mb-5">
+                <h3 class="text-sm font-bold text-white">Shortcuts</h3>
+                <button onclick="Shortcuts.close()" class="p-1.5 hover:bg-panel rounded-3xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50" aria-label="Close shortcuts">
+                    <i class="ph ph-x text-slate-400" aria-hidden="true"></i>
+                </button>
+            </div>
+            <div class="space-y-3 text-sm">
+                <div class="flex justify-between items-center"><span class="text-slate-400">Select files</span><kbd class="bg-panel px-2 py-1 rounded-lg text-xs text-slate-300 font-mono">Ctrl+O</kbd></div>
+                <div class="flex justify-between items-center"><span class="text-slate-400">Prepare transfer</span><kbd class="bg-panel px-2 py-1 rounded-lg text-xs text-slate-300 font-mono">Enter</kbd></div>
+                <div class="flex justify-between items-center"><span class="text-slate-400">Pause / Resume</span><kbd class="bg-panel px-2 py-1 rounded-lg text-xs text-slate-300 font-mono">Space</kbd></div>
+                <div class="flex justify-between items-center"><span class="text-slate-400">Cancel / Reset</span><kbd class="bg-panel px-2 py-1 rounded-lg text-xs text-slate-300 font-mono">Escape</kbd></div>
+                <div class="flex justify-between items-center"><span class="text-slate-400">Copy link</span><kbd class="bg-panel px-2 py-1 rounded-lg text-xs text-slate-300 font-mono">Ctrl+C</kbd></div>
+                <div class="flex justify-between items-center"><span class="text-slate-400">Settings</span><kbd class="bg-panel px-2 py-1 rounded-lg text-xs text-slate-300 font-mono">Ctrl+,</kbd></div>
             </div>
         </div>
     </div>
 
     <!-- Main Content -->
-    <main id="main-content" class="flex-1 w-full overflow-y-auto pt-16 pb-8 px-4 md:px-8 flex flex-col items-center justify-center relative">
+    <main class="flex-1 w-full overflow-y-auto pt-14 pb-6 px-4 md:px-8 flex flex-col items-center justify-center relative min-h-0">
 
         <!-- STATE: UPLOAD -->
-        <div id="state-upload" class="w-full max-w-xl flex flex-col gap-5 hidden">
+        <div id="state-upload" class="w-full max-w-lg flex flex-col gap-4 hidden">
             <div class="text-center mb-1">
-                <h1 class="text-4xl md:text-5xl font-black tracking-tighter text-white">Direct P2P Transfer</h1>
-                <p class="text-slate-400 mt-2 text-sm">Send files directly. No cloud. No accounts.</p>
+                <h1 class="text-3xl md:text-4xl font-black tracking-tight text-white">Direct P2P Transfer</h1>
+                <p class="text-slate-400 mt-1.5 text-sm">Send files directly. No cloud. No accounts.</p>
             </div>
 
-            <label id="dropzone" class="bg-surface rounded-3xl flex flex-col items-center justify-center cursor-pointer transition-all duration-300 hover:bg-surface/70 min-h-[200px] group" role="button" aria-label="Drop files here or click to browse">
-                <div class="bg-elevated p-4 rounded-3xl mb-3 group-hover:scale-110 transition-transform duration-300 text-slate-400 group-hover:text-brand">
-                    <i class="ph ph-upload-simple text-3xl" aria-hidden="true"></i>
+            <label id="dropzone" class="bg-surface rounded-3xl flex flex-col items-center justify-center cursor-pointer transition-all duration-300 hover:bg-surface/80 min-h-[200px] group focus-within:ring-2 focus-within:ring-brand/50" tabindex="0" role="button" aria-label="Drop files here or press to browse">
+                <div class="bg-bg p-3.5 rounded-3xl mb-3 group-hover:scale-105 transition-transform duration-300 text-slate-400 group-hover:text-brand group-focus:text-brand">
+                    <i class="ph ph-upload-simple text-2xl" aria-hidden="true"></i>
                 </div>
-                <span class="text-lg font-semibold text-slate-200 group-hover:text-white transition-colors">Drop files or click to browse</span>
-                <span class="text-slate-500 mt-1 text-sm">Up to 50 files</span>
-                <input type="file" id="file-input" class="hidden" multiple>
+                <span class="text-base font-semibold text-slate-200 group-hover:text-white transition-colors">Drop files or click to browse</span>
+                <span class="text-slate-500 mt-1 text-xs">Up to 50 files</span>
+                <input type="file" id="file-input" class="hidden" multiple aria-label="File input">
             </label>
 
             <div id="file-list-container" class="hidden bg-surface rounded-3xl overflow-hidden">
-                <div class="px-5 py-3 flex justify-between items-center">
+                <div class="px-4 py-2.5 flex justify-between items-center">
                     <span class="text-sm font-medium text-slate-300" id="file-count-label">0 files</span>
-                    <button id="clear-files-btn" class="text-xs text-danger hover:text-red-400 font-medium transition-colors p-2 rounded-3xl hover:bg-danger/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50" aria-label="Remove all files">
+                    <button id="clear-files-btn" class="text-slate-500 hover:text-danger p-2 rounded-3xl hover:bg-danger/5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50" aria-label="Remove all files">
                         <i class="ph ph-trash text-sm" aria-hidden="true"></i>
                     </button>
                 </div>
                 <div id="file-list" class="max-h-44 overflow-y-auto px-2 pb-1"></div>
-                <div class="px-5 py-3 flex justify-between items-center">
+                <div class="px-4 py-2.5 flex justify-between items-center">
                     <span class="text-xs text-slate-500" id="total-size-label">0 MB</span>
-                    <button id="confirm-files-btn" class="bg-brand hover:bg-brand/90 text-bg font-bold px-5 py-2.5 rounded-3xl text-sm transition-all shadow-lg shadow-brand/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
+                    <button id="confirm-files-btn" class="bg-brand hover:bg-brand/90 text-bg font-bold px-5 py-2 rounded-3xl text-sm transition-all shadow-lg shadow-brand/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
                         Prepare
                     </button>
                 </div>
@@ -240,164 +201,166 @@
         </div>
 
         <!-- STATE: SHARE -->
-        <div id="state-share" class="hidden w-full max-w-md flex flex-col items-center text-center bg-surface p-6 md:p-8 rounded-3xl gap-5">
+        <div id="state-share" class="hidden w-full max-w-sm flex flex-col items-center text-center bg-surface p-5 md:p-6 rounded-3xl gap-4">
             <div>
-                <h2 class="text-2xl font-bold text-white">Ready</h2>
-                <p class="text-sm text-slate-400 mt-1">Scan or share the link. Keep this open.</p>
+                <h2 class="text-xl font-bold text-white">Ready</h2>
+                <p class="text-xs text-slate-400 mt-1">Scan or share the link. Keep this open.</p>
             </div>
 
-            <div class="bg-white p-3 rounded-3xl shadow-2xl">
-                <canvas id="qrcode" class="w-44 h-44 rounded-2xl"></canvas>
+            <div class="bg-white p-2.5 rounded-3xl shadow-2xl">
+                <canvas id="qrcode" class="w-40 h-40 rounded-2xl" aria-label="QR code for connection"></canvas>
             </div>
 
             <div class="w-full flex gap-2">
-                <button id="copy-link-btn" class="flex-1 flex items-center justify-center gap-2 bg-elevated hover:bg-white/10 text-slate-200 py-3 rounded-3xl font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 text-sm">
-                    <i class="ph ph-copy text-lg" aria-hidden="true"></i>
+                <button id="copy-link-btn" class="flex-1 flex items-center justify-center gap-2 bg-bg hover:bg-white/5 text-slate-200 py-2.5 rounded-3xl font-medium transition-colors text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
+                    <i class="ph ph-copy text-base" aria-hidden="true"></i>
                     Copy Link
                 </button>
-                <button id="copy-key-btn" class="flex-1 flex items-center justify-center gap-2 bg-elevated hover:bg-white/10 text-slate-200 py-3 rounded-3xl font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 text-sm">
-                    <i class="ph ph-key text-lg" aria-hidden="true"></i>
+                <button id="copy-key-btn" class="flex-1 flex items-center justify-center gap-2 bg-bg hover:bg-white/5 text-slate-200 py-2.5 rounded-3xl font-medium transition-colors text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
+                    <i class="ph ph-key text-base" aria-hidden="true"></i>
                     Copy Key
                 </button>
             </div>
 
-            <div class="w-full bg-elevated rounded-3xl overflow-hidden text-left">
-                <div class="px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">Files</div>
-                <div id="share-file-list" class="max-h-32 overflow-y-auto divide-y divide-white/5 px-2 pb-1"></div>
+            <div class="w-full bg-bg rounded-3xl overflow-hidden text-left">
+                <div class="px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">Files</div>
+                <div id="share-file-list" class="max-h-32 overflow-y-auto px-2 pb-1"></div>
             </div>
 
-            <div class="w-full flex items-center justify-between bg-elevated rounded-3xl p-3">
-                <div class="flex items-center gap-2.5">
+            <div class="w-full flex items-center justify-between bg-bg rounded-3xl p-2.5">
+                <div class="flex items-center gap-2">
                     <div class="bg-brand/10 p-1.5 rounded-3xl text-brand">
-                        <i class="ph ph-shield-check text-lg" aria-hidden="true"></i>
+                        <i class="ph ph-shield-check text-base" aria-hidden="true"></i>
                     </div>
                     <div class="text-left">
-                        <p class="text-sm font-medium text-slate-200">Encrypted</p>
-                        <p class="text-xs text-slate-500" id="security-badge-text">XOR stream + URL hash</p>
+                        <p class="text-xs font-medium text-slate-200">Encrypted</p>
+                        <p class="text-[11px] text-slate-500" id="security-badge-text">XOR stream</p>
                     </div>
                 </div>
-                <span class="flex items-center gap-1.5 text-brand font-bold text-xs bg-brand/10 px-3 py-1.5 rounded-full animate-pulse">
-                    <i class="ph ph-spinner animate-spin text-xs" aria-hidden="true"></i>
+                <span class="flex items-center gap-1 text-brand font-bold text-[11px] bg-brand/10 px-2.5 py-1 rounded-full animate-pulse">
+                    <i class="ph ph-spinner animate-spin text-[10px]" aria-hidden="true"></i>
                     Waiting
                 </span>
             </div>
         </div>
 
         <!-- STATE: TRANSFER -->
-        <div id="state-transfer" class="hidden w-full max-w-2xl flex flex-col bg-surface p-6 md:p-8 rounded-3xl gap-4">
+        <div id="state-transfer" class="hidden w-full max-w-xl flex flex-col bg-surface p-5 md:p-6 rounded-3xl gap-4">
             <div class="flex justify-between items-end">
                 <div>
-                    <h2 id="transfer-status" class="text-2xl md:text-3xl font-black text-white">Initializing</h2>
-                    <p id="transfer-subtitle" class="text-slate-400 text-sm mt-1">Establishing channel</p>
+                    <h2 id="transfer-status" class="text-xl md:text-2xl font-black text-white">Initializing</h2>
+                    <p id="transfer-subtitle" class="text-slate-400 text-xs mt-0.5">Establishing channel</p>
                 </div>
-                <div class="text-right flex items-center gap-3">
-                    <span id="transfer-speed" class="text-lg font-bold text-brand">--</span>
-                    <span id="transfer-eta" class="text-slate-500 text-xs hidden sm:inline">Calculating</span>
+                <div class="text-right">
+                    <p id="transfer-speed" class="text-base font-bold text-brand">--</p>
+                    <p id="transfer-eta" class="text-slate-500 text-[11px]">Calculating</p>
                 </div>
             </div>
 
-            <div class="w-full bg-elevated rounded-3xl h-2.5 overflow-hidden relative">
-                <div id="master-progress" class="bg-brand h-full w-0 transition-all duration-300 relative rounded-r-3xl">
-                    <div class="absolute inset-0 bg-white/15 animate-pulse"></div>
+            <div class="w-full bg-bg rounded-3xl h-2.5 overflow-hidden relative">
+                <div id="master-progress" class="bg-brand h-full w-0 transition-all duration-300 relative">
+                    <div class="absolute inset-0 bg-white/20 animate-pulse"></div>
                 </div>
             </div>
-            <div class="flex justify-between w-full text-slate-400 text-xs -mt-1">
+            <div class="flex justify-between w-full text-slate-400 text-[11px] -mt-2">
                 <span id="master-percent">0%</span>
                 <span id="master-bytes">0 / 0</span>
             </div>
 
-            <div class="bg-elevated rounded-3xl overflow-hidden">
-                <div class="px-4 py-2 flex justify-between items-center">
-                    <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Queue</span>
-                    <span id="queue-status" class="text-xs text-slate-400">0 / 0</span>
-                </div>
-                <div id="transfer-queue" class="max-h-48 overflow-y-auto divide-y divide-white/5 px-2 pb-1"></div>
+            <div class="bg-bg rounded-3xl overflow-hidden">
+                <div id="transfer-queue" class="max-h-48 overflow-y-auto px-2 py-1"></div>
             </div>
 
             <div class="flex flex-wrap gap-2 justify-center">
-                <button id="pause-btn" class="flex items-center gap-2 bg-elevated hover:bg-white/10 text-slate-200 px-4 py-2.5 rounded-3xl font-medium transition-colors text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50" aria-label="Pause transfer">
-                    <i class="ph ph-pause text-base" id="pause-icon" aria-hidden="true"></i>
+                <button id="pause-btn" class="flex items-center gap-2 bg-bg hover:bg-white/5 text-slate-200 px-4 py-2 rounded-3xl font-medium transition-colors text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
+                    <i class="ph ph-pause text-sm" id="pause-icon" aria-hidden="true"></i>
                     <span id="pause-btn-text">Pause</span>
                 </button>
-                <button id="break-btn" class="flex items-center gap-2 bg-danger/10 hover:bg-danger/20 text-danger px-4 py-2.5 rounded-3xl font-bold transition-colors text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50" aria-label="Break connection">
-                    <i class="ph ph-lightning-slash text-base" aria-hidden="true"></i>
+                <button id="break-btn" class="flex items-center gap-2 bg-danger/10 hover:bg-danger/20 text-danger px-4 py-2 rounded-3xl font-bold transition-colors text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50">
+                    <i class="ph ph-lightning-slash text-sm" aria-hidden="true"></i>
                     Break
                 </button>
-                <button id="cancel-transfer-btn" class="flex items-center gap-2 text-slate-400 hover:text-danger hover:bg-danger/10 px-4 py-2.5 rounded-3xl font-bold transition-colors text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50" aria-label="Cancel transfer">
-                    <i class="ph ph-x text-base" aria-hidden="true"></i>
+                <button id="cancel-transfer-btn" class="flex items-center gap-2 text-slate-400 hover:text-danger hover:bg-danger/10 px-4 py-2 rounded-3xl font-bold transition-colors text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50">
+                    <i class="ph ph-x text-sm" aria-hidden="true"></i>
                     Cancel
                 </button>
             </div>
 
-            <div class="flex items-center gap-4 text-xs text-slate-500 justify-center flex-wrap">
-                <span class="flex items-center gap-1.5">
-                    <span class="w-1.5 h-1.5 rounded-full bg-brand animate-pulse" aria-hidden="true"></span>
-                    RTT <span id="rtt-display">--</span>ms
+            <div class="flex items-center gap-4 text-[11px] text-slate-500 justify-center">
+                <span class="flex items-center gap-1" title="Round-trip time">
+                    <span class="w-1 h-1 rounded-full bg-brand animate-pulse" aria-hidden="true"></span>
+                    <span id="rtt-display">--</span>ms
                 </span>
-                <span class="flex items-center gap-1.5">
-                    <span class="w-1.5 h-1.5 rounded-full bg-warning animate-pulse" aria-hidden="true"></span>
-                    Retries <span id="retry-display">0</span>
+                <span class="flex items-center gap-1" title="Retry count">
+                    <span class="w-1 h-1 rounded-full bg-warning animate-pulse" aria-hidden="true"></span>
+                    <span id="retry-display">0</span>
                 </span>
-                <span class="flex items-center gap-1.5">
-                    <span class="w-1.5 h-1.5 rounded-full bg-success animate-pulse" aria-hidden="true"></span>
-                    Chunks <span id="chunk-display">0</span>
+                <span class="flex items-center gap-1" title="Chunks transferred">
+                    <span class="w-1 h-1 rounded-full bg-success animate-pulse" aria-hidden="true"></span>
+                    <span id="chunk-display">0</span>
                 </span>
             </div>
         </div>
 
         <!-- STATE: DONE -->
-        <div id="state-done" class="hidden w-full max-w-lg flex flex-col items-center text-center bg-surface p-6 md:p-8 rounded-3xl gap-4">
-            <div class="bg-success/10 text-success p-4 rounded-3xl">
-                <i class="ph ph-check-circle text-4xl" aria-hidden="true"></i>
+        <div id="state-done" class="hidden w-full max-w-sm flex flex-col items-center text-center bg-surface p-5 md:p-6 rounded-3xl gap-4">
+            <div class="bg-success/10 text-success p-3 rounded-3xl">
+                <i class="ph ph-check-circle text-3xl" aria-hidden="true"></i>
             </div>
             <div>
-                <h2 class="text-3xl font-black text-white">Complete</h2>
-                <p class="text-slate-400 mt-1 text-sm">Transfer finished successfully.</p>
+                <h2 class="text-2xl font-black text-white">Complete</h2>
+                <p class="text-slate-400 text-sm mt-1">Transfer finished.</p>
             </div>
 
-            <div id="done-files-container" class="hidden w-full bg-elevated rounded-3xl overflow-hidden text-left">
-                <div class="px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">Files</div>
-                <div id="done-file-list" class="max-h-48 overflow-y-auto divide-y divide-white/5 px-2 pb-2"></div>
+            <div id="done-files-container" class="hidden w-full bg-bg rounded-3xl overflow-hidden text-left">
+                <div class="px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">Files</div>
+                <div id="done-file-list" class="max-h-40 overflow-y-auto px-2 pb-2"></div>
             </div>
 
-            <button id="toggle-summary-btn" class="w-full flex items-center justify-center gap-2 bg-elevated hover:bg-white/5 text-slate-400 py-2.5 rounded-3xl font-medium transition-colors text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50" aria-expanded="false" aria-label="Show transfer details">
-                <i class="ph ph-info text-base" aria-hidden="true"></i>
-                <span>Details</span>
-                <i class="ph ph-caret-down text-sm transition-transform duration-200" id="summary-caret" aria-hidden="true"></i>
-            </button>
-
-            <div id="done-summary-wrapper" class="hidden w-full bg-elevated rounded-3xl overflow-hidden text-left animate-slide-down">
-                <div class="px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">Summary</div>
-                <div id="done-summary" class="p-4 space-y-2"></div>
-            </div>
-
-            <div class="flex gap-3 w-full">
-                <button onclick="App.reset()" class="flex-1 bg-brand hover:bg-brand/90 text-bg px-5 py-3 rounded-3xl font-bold transition-all shadow-lg shadow-brand/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 text-sm">
+            <div class="flex gap-2 w-full">
+                <button onclick="App.reset()" class="flex-1 bg-brand hover:bg-brand/90 text-bg px-4 py-2.5 rounded-3xl font-bold transition-all shadow-lg shadow-brand/10 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
                     Send More
+                </button>
+                <button id="show-summary-btn" class="bg-bg hover:bg-white/5 text-slate-300 px-4 py-2.5 rounded-3xl font-medium transition-colors text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
+                    <i class="ph ph-chart-bar" aria-hidden="true"></i>
                 </button>
             </div>
         </div>
 
+        <!-- Summary Panel (hidden by default) -->
+        <div id="summary-panel" class="hidden w-full max-w-sm bg-surface p-5 rounded-3xl gap-4 mt-4 animate-slide-up">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-sm font-bold text-white">Summary</h3>
+                <button onclick="Summary.hide()" class="p-1.5 hover:bg-panel rounded-3xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50" aria-label="Hide summary">
+                    <i class="ph ph-x text-slate-400" aria-hidden="true"></i>
+                </button>
+            </div>
+            <div id="done-summary" class="space-y-2"></div>
+        </div>
+
         <!-- STATE: ERROR -->
-        <div id="state-error" class="hidden w-full max-w-lg flex flex-col items-center text-center bg-surface p-6 md:p-8 rounded-3xl gap-5">
-            <div class="bg-danger/10 text-danger p-4 rounded-3xl">
-                <i class="ph ph-warning-circle text-4xl" aria-hidden="true"></i>
+        <div id="state-error" class="hidden w-full max-w-sm flex flex-col items-center text-center bg-surface p-5 md:p-6 rounded-3xl gap-4">
+            <div class="bg-danger/10 text-danger p-3 rounded-3xl">
+                <i class="ph ph-warning-circle text-3xl" aria-hidden="true"></i>
             </div>
             <div>
-                <h2 class="text-3xl font-black text-white" id="error-title">Failed</h2>
-                <p class="text-slate-400 mt-1 text-sm" id="error-message">Connection lost.</p>
+                <h2 class="text-2xl font-black text-white" id="error-title">Failed</h2>
+                <p class="text-slate-400 text-sm mt-1" id="error-message">Connection lost.</p>
             </div>
 
-            <div class="w-full bg-elevated rounded-3xl p-4 text-left">
-                <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Details</p>
-                <div id="error-diagnostics" class="space-y-1 text-sm text-slate-400 font-mono"></div>
+            <div class="w-full bg-bg rounded-3xl p-3.5 text-left">
+                <div class="flex items-center justify-between mb-2 cursor-pointer" onclick="ErrorDetails.toggle()" role="button" tabindex="0" aria-expanded="false" aria-label="Toggle error details">
+                    <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Details</span>
+                    <i class="ph ph-caret-down text-slate-500 text-xs transition-transform" id="error-caret" aria-hidden="true"></i>
+                </div>
+                <div id="error-diagnostics" class="hidden space-y-1 text-xs text-slate-400 font-mono"></div>
             </div>
 
-            <div class="flex gap-3 w-full">
-                <button onclick="App.reset()" class="flex-1 bg-brand hover:bg-brand/90 text-bg px-5 py-3 rounded-3xl font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 text-sm">
+            <div class="flex gap-2 w-full">
+                <button onclick="App.reset()" class="flex-1 bg-brand hover:bg-brand/90 text-bg px-4 py-2.5 rounded-3xl font-bold transition-all text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
                     Start Over
                 </button>
-                <button id="retry-btn" class="flex-1 bg-elevated hover:bg-white/5 text-white px-5 py-3 rounded-3xl font-bold transition-colors hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 text-sm">
+                <button id="retry-btn" class="flex-1 bg-bg hover:bg-white/5 text-white px-4 py-2.5 rounded-3xl font-bold transition-colors text-sm hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
                     Retry
                 </button>
             </div>
@@ -406,6 +369,7 @@
     </main>
 
     <script>
+
         // ============================================================
         // CONFIG
         // ============================================================
@@ -421,7 +385,7 @@
         };
 
         // ============================================================
-        // DOM UTILITIES — NO innerHTML
+        // DOM UTILITIES
         // ============================================================
         const DOM = {
             get: (id) => document.getElementById(id),
@@ -487,8 +451,7 @@
         }
 
         function getPhosphorIcon(type) {
-            const icons = { image: 'image', video: 'video', audio: 'headphones', document: 'file-text', archive: 'archive',
-                code: 'code', file: 'file' };
+            const icons = { image: 'image', video: 'video', audio: 'headphones', document: 'file-text', archive: 'archive', code: 'code', file: 'file' };
             return icons[type] || 'file';
         }
 
@@ -538,8 +501,7 @@
                 if (result.length > CONFIG.FILENAME_MAX_LENGTH) {
                     const extIdx = result.lastIndexOf('.');
                     if (extIdx > 0) {
-                        result = result.slice(0, CONFIG.FILENAME_MAX_LENGTH - (result.length - extIdx)) + result.slice(
-                            extIdx);
+                        result = result.slice(0, CONFIG.FILENAME_MAX_LENGTH - (result.length - extIdx)) + result.slice(extIdx);
                     } else {
                         result = result.slice(0, CONFIG.FILENAME_MAX_LENGTH);
                     }
@@ -587,18 +549,15 @@
                     error: 'bg-surface text-danger',
                     warning: 'bg-surface text-warning',
                 };
-                const toast = DOM.create('div',
-                    'pointer-events-auto px-4 py-2.5 rounded-3xl font-medium shadow-2xl shadow-black/50 text-sm animate-fade-in flex items-center gap-2 ' +
-                    (colors[type] || colors.info));
-                toast.appendChild(icon(type === 'success' ? 'check-circle' : type === 'error' ? 'warning-circle' : type ===
-                    'warning' ? 'warning' : 'info', 'text-base'));
+                const toast = DOM.create('div', 'pointer-events-auto px-4 py-2.5 rounded-3xl font-medium shadow-2xl shadow-black/50 text-sm animate-fade-in flex items-center gap-2 ' + (colors[type] || colors.info));
+                toast.appendChild(icon(type === 'success' ? 'check-circle' : type === 'error' ? 'warning-circle' : type === 'warning' ? 'warning' : 'info', 'text-base'));
                 toast.appendChild(DOM.create('span', '', { text: message }));
                 Toast.container.appendChild(toast);
                 setTimeout(() => {
                     toast.classList.remove('animate-fade-in');
                     toast.classList.add('animate-fade-out');
                     setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 200);
-                }, 3500);
+                }, 3000);
             }
         };
 
@@ -621,7 +580,7 @@
                         setTimeout(() => {
                             el.classList.add('hidden');
                             el.classList.remove('animate-fade-out');
-                        }, 180);
+                        }, 150);
                     }
                 });
                 setTimeout(() => {
@@ -629,16 +588,12 @@
                     target.classList.remove('hidden', 'animate-fade-out');
                     target.classList.add('animate-fade-in');
                     State.current = name;
-                    if (name === 'upload') {
-                        const fileInput = DOM.get('file-input');
-                        if (fileInput) fileInput.focus();
-                    }
-                }, 220);
+                }, 200);
             }
         };
 
         // ============================================================
-        // SETTINGS POPOVER
+        // SETTINGS
         // ============================================================
         const Settings = {
             popover: DOM.get('settings-popover'),
@@ -646,13 +601,10 @@
             open: () => {
                 DOM.show(Settings.popover);
                 Settings.toggle.setAttribute('aria-expanded', 'true');
-                const firstSelect = Settings.popover.querySelector('select');
-                if (firstSelect) setTimeout(() => firstSelect.focus(), 100);
             },
             close: () => {
                 DOM.hide(Settings.popover);
                 Settings.toggle.setAttribute('aria-expanded', 'false');
-                Settings.toggle.focus();
             },
             init: () => {
                 Settings.toggle.addEventListener('click', (e) => {
@@ -661,93 +613,102 @@
                     else Settings.close();
                 });
                 document.addEventListener('click', (e) => {
-                    if (!Settings.popover.classList.contains('hidden') && !Settings.popover.contains(e
-                            .target) && !Settings.toggle.contains(e.target)) {
+                    if (!Settings.popover.classList.contains('hidden') && !Settings.popover.contains(e.target) && !Settings.toggle.contains(e.target)) {
                         Settings.close();
                     }
                 });
-                Settings.popover.addEventListener('keydown', (e) => {
-                    if (e.key === 'Escape') {
+                DOM.get('shortcut-help-btn').addEventListener('click', () => { Settings.close(); Shortcuts.open(); });
+            }
+        };
+
+        // ============================================================
+        // SHORTCUTS
+        // ============================================================
+        const Shortcuts = {
+            modal: DOM.get('shortcut-modal'),
+            open: () => { DOM.show(Shortcuts.modal); },
+            close: () => { DOM.hide(Shortcuts.modal); },
+            init: () => {
+                document.addEventListener('keydown', (e) => {
+                    if (e.ctrlKey && e.key === ',') {
                         e.preventDefault();
-                        Settings.close();
+                        if (Settings.popover.classList.contains('hidden')) Settings.open();
+                        else Settings.close();
+                        return;
                     }
+                    if (e.key === 'Escape') {
+                        if (!Shortcuts.modal.classList.contains('hidden')) { Shortcuts.close(); return; }
+                        if (!Settings.popover.classList.contains('hidden')) { Settings.close(); return; }
+                        if (!Summary.panel.classList.contains('hidden')) { Summary.hide(); return; }
+                        if (State.current === 'transfer') {
+                            DOM.get('cancel-transfer-btn').click();
+                            return;
+                        }
+                        if (State.current === 'share') {
+                            App.reset();
+                            return;
+                        }
+                        return;
+                    }
+                    if (State.current === 'upload') {
+                        if (e.ctrlKey && e.key === 'o') {
+                            e.preventDefault();
+                            DOM.get('file-input').click();
+                            return;
+                        }
+                        if (e.key === 'Enter' && FileStore.files.length > 0) {
+                            e.preventDefault();
+                            DOM.get('confirm-files-btn').click();
+                            return;
+                        }
+                    }
+                    if (State.current === 'share') {
+                        if (e.ctrlKey && e.key === 'c') {
+                            e.preventDefault();
+                            DOM.get('copy-link-btn').click();
+                            return;
+                        }
+                    }
+                    if (State.current === 'transfer') {
+                        if (e.key === ' ') {
+                            e.preventDefault();
+                            DOM.get('pause-btn').click();
+                            return;
+                        }
+                    }
+                });
+                Shortcuts.modal.addEventListener('click', (e) => {
+                    if (e.target === Shortcuts.modal) Shortcuts.close();
                 });
             }
         };
 
         // ============================================================
-        // KEYBOARD SHORTCUTS
+        // SUMMARY
         // ============================================================
-        const Keyboard = {
-            helpEl: DOM.get('shortcuts-help'),
+        const Summary = {
+            panel: DOM.get('summary-panel'),
+            show: () => { DOM.show(Summary.panel); },
+            hide: () => { DOM.hide(Summary.panel); },
             init: () => {
-                document.addEventListener('keydown', (e) => {
-                    const mod = e.ctrlKey || e.metaKey;
-                    const key = e.key.toLowerCase();
+                DOM.get('show-summary-btn').addEventListener('click', Summary.show);
+            }
+        };
 
-                    if (key === 'escape') {
-                        if (!Settings.popover.classList.contains('hidden')) {
-                            Settings.close();
-                            return;
-                        }
-                        if (!Keyboard.helpEl.classList.contains('hidden')) {
-                            Keyboard.closeHelp();
-                            return;
-                        }
-                    }
-
-                    if (key === '?' && !mod && !e.shiftKey) {
-                        const activeEl = document.activeElement;
-                        if (!activeEl || activeEl.tagName === 'BODY' || activeEl.closest('button') || activeEl ===
-                            document.body) {
-                            e.preventDefault();
-                            Keyboard.toggleHelp();
-                        }
-                    }
-
-                    if (mod && key === 'o' && State.current === 'upload') {
-                        e.preventDefault();
-                        DOM.get('file-input').click();
-                    }
-
-                    if (key === ' ' && State.current === 'transfer') {
-                        const activeEl = document.activeElement;
-                        if (!activeEl || activeEl.tagName === 'BODY' || activeEl.closest('main')) {
-                            e.preventDefault();
-                            DOM.get('pause-btn').click();
-                        }
-                    }
-
-                    if (mod && e.shiftKey && key === 'c' && State.current === 'share') {
-                        e.preventDefault();
-                        DOM.get('copy-link-btn').click();
-                    }
-
-                    if (mod && key === 'd' && State.current === 'done') {
-                        e.preventDefault();
-                        const downloadAllBtn = DOM.get('done-file-list')?.querySelector('button');
-                        if (downloadAllBtn && downloadAllBtn.textContent === 'Download All') {
-                            downloadAllBtn.click();
-                        }
-                    }
-                });
-
-                DOM.get('shortcuts-toggle').addEventListener('click', Keyboard.toggleHelp);
-                Keyboard.helpEl.addEventListener('click', (e) => {
-                    if (e.target === Keyboard.helpEl) Keyboard.closeHelp();
-                });
-            },
-            toggleHelp: () => {
-                if (Keyboard.helpEl.classList.contains('hidden')) {
-                    DOM.show(Keyboard.helpEl);
-                    Keyboard.helpEl.querySelector('button')?.focus();
+        // ============================================================
+        // ERROR DETAILS
+        // ============================================================
+        const ErrorDetails = {
+            toggle: () => {
+                const diag = DOM.get('error-diagnostics');
+                const caret = DOM.get('error-caret');
+                if (diag.classList.contains('hidden')) {
+                    DOM.show(diag);
+                    caret.classList.add('rotate-180');
                 } else {
-                    Keyboard.closeHelp();
+                    DOM.hide(diag);
+                    caret.classList.remove('rotate-180');
                 }
-            },
-            closeHelp: () => {
-                DOM.hide(Keyboard.helpEl);
-                DOM.get('shortcuts-toggle').focus();
             }
         };
 
@@ -782,28 +743,23 @@
                 DOM.clear(container);
                 if (FileStore.files.length === 0) { DOM.hide(listContainer); return; }
                 DOM.show(listContainer);
-                DOM.get('file-count-label').textContent = FileStore.files.length + ' file' + (FileStore.files.length !==
-                    1 ? 's' : '');
+                DOM.get('file-count-label').textContent = FileStore.files.length + ' file' + (FileStore.files.length !== 1 ? 's' : '');
                 DOM.get('total-size-label').textContent = formatBytes(FileStore.getTotalSize());
                 FileStore.files.forEach((file, idx) => {
                     const iconName = getPhosphorIcon(getFileIconName(file.name));
-                    const iconWrapper = DOM.create('div', 'bg-bg p-2 rounded-3xl text-slate-400 flex-shrink-0');
+                    const iconWrapper = DOM.create('div', 'bg-bg p-2 rounded-3xl text-slate-400');
                     iconWrapper.appendChild(icon(iconName, 'text-base'));
-                    const removeBtn = DOM.create('button',
-                        'opacity-0 group-hover:opacity-100 transition-opacity text-slate-500 hover:text-danger p-1.5 rounded-3xl hover:bg-danger/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50 flex-shrink-0',
-                        { 'aria-label': 'Remove ' + file.name });
-                    removeBtn.appendChild(icon('trash', 'text-sm'));
+                    const removeBtn = DOM.create('button', 'opacity-0 group-hover:opacity-100 transition-opacity text-slate-500 hover:text-danger p-2 rounded-3xl hover:bg-danger/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50', { 'aria-label': 'Remove ' + file.name });
+                    removeBtn.appendChild(icon('trash', 'text-xs'));
                     removeBtn.addEventListener('click', () => FileStore.remove(idx));
-                    const row = DOM.create('div',
-                        'flex items-center gap-3 px-3 py-2 hover:bg-white/[0.02] transition-colors group rounded-3xl', {},
-                        [
-                            iconWrapper,
-                            DOM.create('div', 'flex-1 min-w-0 text-left', {}, [
-                                DOM.create('p', 'text-sm font-medium text-slate-200 truncate', { text: file.name }),
-                                DOM.create('p', 'text-xs text-slate-500', { text: formatBytes(file.size) }),
-                            ]),
-                            removeBtn
-                        ]);
+                    const row = DOM.create('div', 'flex items-center gap-3 px-3 py-2 hover:bg-white/[0.02] transition-colors group rounded-3xl', {}, [
+                        iconWrapper,
+                        DOM.create('div', 'flex-1 min-w-0 text-left', {}, [
+                            DOM.create('p', 'text-sm font-medium text-slate-200 truncate', { text: file.name }),
+                            DOM.create('p', 'text-xs text-slate-500', { text: formatBytes(file.size) }),
+                        ]),
+                        removeBtn
+                    ]);
                     container.appendChild(row);
                 });
             }
@@ -817,15 +773,13 @@
             currentIndex: 0,
             isPaused: false,
             isCancelled: false,
-            stats: { startTime: 0, lastUpdate: 0, bytesSinceUpdate: 0, totalBytes: 0, sentBytes: 0, retries: 0,
-            chunks: 0 },
+            stats: { startTime: 0, lastUpdate: 0, bytesSinceUpdate: 0, totalBytes: 0, sentBytes: 0, retries: 0, chunks: 0 },
             reset: () => {
                 Transfer.queue = [];
                 Transfer.currentIndex = 0;
                 Transfer.isPaused = false;
                 Transfer.isCancelled = false;
-                Transfer.stats = { startTime: 0, lastUpdate: 0, bytesSinceUpdate: 0, totalBytes: 0, sentBytes: 0,
-                    retries: 0, chunks: 0 };
+                Transfer.stats = { startTime: 0, lastUpdate: 0, bytesSinceUpdate: 0, totalBytes: 0, sentBytes: 0, retries: 0, chunks: 0 };
             },
             initQueue: (files) => {
                 Transfer.reset();
@@ -852,7 +806,7 @@
                 DOM.get('master-percent').textContent = pct + '%';
                 DOM.get('master-bytes').textContent = formatBytes(sent) + ' / ' + formatBytes(Transfer.stats.totalBytes);
                 const complete = Transfer.queue.filter(q => q.status === 'complete').length;
-                DOM.get('queue-status').textContent = complete + ' / ' + Transfer.queue.length;
+                DOM.get('queue-status').textContent = complete + ' / ' + Transfer.queue.length + ' done';
                 const now = Date.now();
                 if (now - Transfer.stats.lastUpdate > 1000) {
                     const speedBps = Transfer.stats.bytesSinceUpdate / ((now - Transfer.stats.lastUpdate) / 1000);
@@ -863,7 +817,7 @@
                     if (overallSpeed > 0 && sent < Transfer.stats.totalBytes) {
                         const remaining = Transfer.stats.totalBytes - sent;
                         const eta = Math.round(remaining / overallSpeed);
-                        DOM.get('transfer-eta').textContent = formatDuration(eta * 1000);
+                        DOM.get('transfer-eta').textContent = eta > 0 ? formatDuration(eta * 1000) + ' left' : 'Finishing';
                     }
                     Transfer.stats.lastUpdate = now;
                     Transfer.stats.bytesSinceUpdate = 0;
@@ -874,35 +828,28 @@
                 DOM.clear(container);
                 Transfer.queue.forEach((item, idx) => {
                     const iconName = getPhosphorIcon(getFileIconName(item.name));
-                    const iconWrapper = DOM.create('div', 'bg-bg p-1.5 rounded-3xl text-slate-400 flex-shrink-0');
+                    const iconWrapper = DOM.create('div', 'bg-bg p-1.5 rounded-3xl text-slate-400');
                     iconWrapper.appendChild(icon(iconName, 'text-sm'));
                     const isActive = idx === Transfer.currentIndex && item.status === 'active';
-                    const statusColors = { pending: 'text-slate-500', active: 'text-brand animate-pulse',
-                        paused: 'text-warning', complete: 'text-success', error: 'text-danger' };
+                    const statusColors = { pending: 'text-slate-500', active: 'text-brand animate-pulse', paused: 'text-warning', complete: 'text-success', error: 'text-danger' };
                     const statusColor = statusColors[item.status] || 'text-slate-500';
                     const pct = item.size > 0 ? Math.round((item.sent / item.size) * 100) : 0;
-                    const row = DOM.create('div',
-                        'flex items-center gap-2.5 px-3 py-2.5 ' + (isActive ?
-                            'bg-white/[0.03] rounded-3xl' : 'rounded-3xl'), {}, [
-                            iconWrapper,
-                            DOM.create('div', 'flex-1 min-w-0', {}, [
-                                DOM.create('div', 'flex justify-between items-center mb-1', {}, [
-                                    DOM.create('p', 'text-xs font-medium text-slate-200 truncate', { text: item
-                                            .name }),
-                                    DOM.create('span', 'text-[10px] font-bold ' + statusColor, { text: item.status
-                                            .toUpperCase() }),
-                                ]),
-                                DOM.create('div', 'w-full bg-bg rounded-3xl h-1 overflow-hidden', {}, [
-                                    DOM.create('div', 'bg-brand h-full transition-all duration-300', { style: { width: pct +
-                                                '%' } }),
-                                ]),
-                                DOM.create('div', 'flex justify-between mt-0.5', {}, [
-                                    DOM.create('span', 'text-[10px] text-slate-500', { text: formatBytes(item.sent) +
-                                            ' / ' + formatBytes(item.size) }),
-                                    DOM.create('span', 'text-[10px] text-slate-500', { text: pct + '%' }),
-                                ]),
+                    const row = DOM.create('div', 'flex items-center gap-3 px-3 py-2.5 ' + (isActive ? 'bg-white/[0.03] rounded-3xl' : 'rounded-3xl'), {}, [
+                        iconWrapper,
+                        DOM.create('div', 'flex-1 min-w-0', {}, [
+                            DOM.create('div', 'flex justify-between items-center mb-0.5', {}, [
+                                DOM.create('p', 'text-sm font-medium text-slate-200 truncate', { text: item.name }),
+                                DOM.create('span', 'text-[10px] font-bold ' + statusColor, { text: item.status.toUpperCase() }),
                             ]),
-                        ]);
+                            DOM.create('div', 'w-full bg-bg rounded-3xl h-1 overflow-hidden', {}, [
+                                DOM.create('div', 'bg-brand h-full transition-all duration-300', { style: { width: pct + '%' } }),
+                            ]),
+                            DOM.create('div', 'flex justify-between mt-0.5', {}, [
+                                DOM.create('span', 'text-[10px] text-slate-500', { text: formatBytes(item.sent) + ' / ' + formatBytes(item.size) }),
+                                DOM.create('span', 'text-[10px] text-slate-500', { text: pct + '%' }),
+                            ]),
+                        ]),
+                    ]);
                     container.appendChild(row);
                 });
             },
@@ -931,32 +878,25 @@
                 PeerNet.throttleMs = parseInt(throttleSelect.value);
                 PeerNet.securityMode = securitySelect.value;
 
-                throttleSelect.addEventListener('change', (e) => { PeerNet.throttleMs = parseInt(e.target
-                    .value); });
+                throttleSelect.addEventListener('change', (e) => { PeerNet.throttleMs = parseInt(e.target.value); });
                 securitySelect.addEventListener('change', (e) => { PeerNet.securityMode = e.target.value; });
 
                 PeerNet.peer = new Peer({ debug: 1 });
 
                 PeerNet.peer.on('open', (id) => {
                     updateStatus('Ready', 'success');
-                    if (PeerNet.isReceiver) { PeerNet.startReceiver(); } else { State.go('upload');
-                        PeerNet.setupSender(); }
+                    if (PeerNet.isReceiver) { PeerNet.startReceiver(); }
+                    else { State.go('upload'); PeerNet.setupSender(); }
                 });
 
                 PeerNet.peer.on('error', (err) => {
                     console.error(err);
                     updateStatus('Error', 'danger');
-                    let title = 'Error',
-                        msg = err.message || 'Unexpected error.',
-                        canRetry = false;
-                    if (err.type === 'peer-unavailable') { title = 'Unavailable';
-                        msg = 'Sender is offline or link expired.'; } else if (err.type === 'network' || err.type ===
-                        'server-error') { title = 'Network';
-                        msg = 'Cannot reach signaling server.';
-                        canRetry = true; } else if (err.type === 'disconnected') { title = 'Disconnected';
-                        msg = 'Connection closed unexpectedly.';
-                        canRetry = true; } else if (err.type === 'unavailable-id') { title = 'ID Conflict';
-                        msg = 'Peer ID already in use.'; }
+                    let title = 'Error', msg = err.message || 'Unexpected error.', canRetry = false;
+                    if (err.type === 'peer-unavailable') { title = 'Unavailable'; msg = 'Sender is offline or link expired.'; }
+                    else if (err.type === 'network' || err.type === 'server-error') { title = 'Network'; msg = 'Cannot reach signaling server.'; canRetry = true; }
+                    else if (err.type === 'disconnected') { title = 'Disconnected'; msg = 'Connection closed unexpectedly.'; canRetry = true; }
+                    else if (err.type === 'unavailable-id') { title = 'ID Conflict'; msg = 'Peer ID already in use.'; }
                     showError(title, msg, { type: err.type, canRetry: canRetry });
                 });
 
@@ -966,21 +906,24 @@
             setupSender: () => {
                 const dropzone = DOM.get('dropzone');
                 const fileInput = DOM.get('file-input');
-                const handleDrag = (e) => { e.preventDefault();
-                    e.stopPropagation(); };
+                const handleDrag = (e) => { e.preventDefault(); e.stopPropagation(); };
 
                 dropzone.addEventListener('dragenter', handleDrag);
-                dropzone.addEventListener('dragover', (e) => { handleDrag(e);
-                    dropzone.classList.add('bg-brand/5'); });
-                dropzone.addEventListener('dragleave', (e) => { handleDrag(e);
-                    dropzone.classList.remove('bg-brand/5'); });
+                dropzone.addEventListener('dragover', (e) => { handleDrag(e); dropzone.classList.add('bg-brand/5'); });
+                dropzone.addEventListener('dragleave', (e) => { handleDrag(e); dropzone.classList.remove('bg-brand/5'); });
                 dropzone.addEventListener('drop', (e) => {
                     handleDrag(e);
                     dropzone.classList.remove('bg-brand/5');
                     if (e.dataTransfer.files.length) FileStore.add(e.dataTransfer.files);
                 });
-                fileInput.addEventListener('change', (e) => { if (e.target.files.length) FileStore.add(e.target
-                        .files); });
+                fileInput.addEventListener('change', (e) => { if (e.target.files.length) FileStore.add(e.target.files); });
+
+                dropzone.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        fileInput.click();
+                    }
+                });
 
                 DOM.get('clear-files-btn').addEventListener('click', FileStore.clear);
                 DOM.get('confirm-files-btn').addEventListener('click', () => {
@@ -1002,37 +945,33 @@
                 const baseUrl = window.location.origin + window.location.pathname;
                 const shareUrl = baseUrl + '?peer=' + PeerNet.peer.id + '#' + (PeerNet.encryptionKey || '');
 
-                new QRious({ element: DOM.get('qrcode'), value: shareUrl, size: 220, level: 'H',
-                    foreground: '#0e0e0f', background: '#ffffff' });
+                new QRious({ element: DOM.get('qrcode'), value: shareUrl, size: 250, level: 'H', foreground: '#0e0e0f', background: '#ffffff' });
 
                 const manifest = DOM.get('share-file-list');
                 DOM.clear(manifest);
                 FileStore.files.forEach(file => {
                     const iconName = getPhosphorIcon(getFileIconName(file.name));
-                    const iconWrapper = DOM.create('div', 'bg-bg p-1.5 rounded-3xl text-slate-400 flex-shrink-0');
+                    const iconWrapper = DOM.create('div', 'bg-bg p-1.5 rounded-3xl text-slate-400');
                     iconWrapper.appendChild(icon(iconName, 'text-sm'));
-                    const row = DOM.create('div', 'flex items-center gap-2.5 px-3 py-2 rounded-3xl', {}, [
+                    const row = DOM.create('div', 'flex items-center gap-3 px-3 py-2 rounded-3xl', {}, [
                         iconWrapper,
                         DOM.create('div', 'flex-1 min-w-0 text-left', {}, [
-                            DOM.create('p', 'text-xs text-slate-200 truncate', { text: Safety.sanitizeFilename(file
-                                    .name) }),
-                            DOM.create('p', 'text-[10px] text-slate-500', { text: formatBytes(file.size) }),
+                            DOM.create('p', 'text-sm text-slate-200 truncate', { text: Safety.sanitizeFilename(file.name) }),
+                            DOM.create('p', 'text-xs text-slate-500', { text: formatBytes(file.size) }),
                         ]),
                     ]);
                     manifest.appendChild(row);
                 });
 
-                const secText = PeerNet.securityMode === 'none' ? 'Standard WebRTC' :
-                    PeerNet.securityMode === 'encrypt' ? 'XOR stream + URL hash' :
-                    'Paranoid + chunk checksums';
+                const secText = PeerNet.securityMode === 'none' ? 'Standard' :
+                                PeerNet.securityMode === 'encrypt' ? 'XOR stream' :
+                                'Paranoid';
                 DOM.get('security-badge-text').textContent = secText;
 
-                DOM.get('copy-link-btn').onclick = () => { navigator.clipboard.writeText(shareUrl).then(() => Toast
-                        .show('Link copied', 'success')); };
+                DOM.get('copy-link-btn').onclick = () => { navigator.clipboard.writeText(shareUrl).then(() => Toast.show('Link copied', 'success')); };
                 DOM.get('copy-key-btn').onclick = () => {
-                    if (PeerNet.encryptionKey) { navigator.clipboard.writeText(PeerNet.encryptionKey).then(() =>
-                            Toast.show('Key copied', 'success')); } else { Toast.show('No key in standard mode',
-                            'info'); }
+                    if (PeerNet.encryptionKey) { navigator.clipboard.writeText(PeerNet.encryptionKey).then(() => Toast.show('Key copied', 'success')); }
+                    else { Toast.show('No key in standard mode', 'info'); }
                 };
 
                 State.go('share');
@@ -1051,8 +990,7 @@
                 isReceiver = isReceiver || false;
                 let connectTimeout = setTimeout(() => {
                     if (conn.open === false) {
-                        showError('Timeout',
-                            'Failed to connect within 30s. Sender may be behind a restrictive NAT.', { canRetry: true });
+                        showError('Timeout', 'Failed to connect within 30s. Sender may be behind a restrictive NAT.', { canRetry: true });
                     }
                 }, CONFIG.CONNECT_TIMEOUT);
 
@@ -1069,13 +1007,7 @@
                         DOM.get('transfer-subtitle').textContent = Transfer.queue.length + ' files';
                         Transfer.stats.startTime = Date.now();
                         Transfer.stats.lastUpdate = Date.now();
-                        conn.send({
-                            type: 'manifest',
-                            files: Transfer.queue.map(q => ({ id: q.id, name: q.name, size: q.size,
-                                filetype: q.type })),
-                            security: PeerNet.securityMode,
-                            version: '2.0'
-                        });
+                        conn.send({ type: 'manifest', files: Transfer.queue.map(q => ({ id: q.id, name: q.name, size: q.size, filetype: q.type })), security: PeerNet.securityMode, version: '2.0' });
                         Transfer.renderQueue();
                         PeerNet.sendNextFile();
                     }
@@ -1088,18 +1020,11 @@
 
                     if (isReceiver) {
                         if (data.type === 'manifest') {
-                            if (!Array.isArray(data.files)) { showError('Bad manifest',
-                                'Corrupted manifest from sender.'); return; }
+                            if (!Array.isArray(data.files)) { showError('Bad manifest', 'Corrupted manifest from sender.'); return; }
                             Transfer.queue = data.files.map(f => ({
-                                id: f.id,
-                                name: Safety.sanitizeFilename(f.name),
-                                size: f.size,
-                                type: f.filetype || 'application/octet-stream',
-                                sent: 0,
-                                status: 'pending',
-                                buffers: [],
-                                expectedSeq: 0,
-                                downloadUrl: null,
+                                id: f.id, name: Safety.sanitizeFilename(f.name), size: f.size,
+                                type: f.filetype || 'application/octet-stream', sent: 0, status: 'pending',
+                                buffers: [], expectedSeq: 0, downloadUrl: null,
                             }));
                             Transfer.stats.totalBytes = Transfer.queue.reduce((s, q) => s + q.size, 0);
                             Transfer.stats.startTime = Date.now();
@@ -1108,7 +1033,8 @@
                             Transfer.renderQueue();
                             Transfer.updateMasterProgress();
                             conn.send({ type: 'ack-manifest' });
-                        } else if (data.type === 'file-header') {
+                        }
+                        else if (data.type === 'file-header') {
                             currentFile = Transfer.queue.find(q => q.id === data.id);
                             if (!currentFile) { conn.send({ type: 'error', message: 'Unknown ID' }); return; }
                             currentFile.status = 'active';
@@ -1119,7 +1045,8 @@
                             DOM.get('transfer-status').textContent = 'Receiving: ' + currentFile.name;
                             Transfer.renderQueue();
                             conn.send({ type: 'ack-header', id: data.id });
-                        } else if (data.type === 'chunk') {
+                        }
+                        else if (data.type === 'chunk') {
                             if (!currentFile || data.id !== currentFile.id) return;
                             if (data.seq !== currentFile.expectedSeq) {
                                 console.warn('Seq gap', currentFile.expectedSeq, data.seq);
@@ -1127,17 +1054,13 @@
                             currentFile.expectedSeq = (data.seq || 0) + 1;
                             let chunkData = data.data;
                             if (PeerNet.encryptionKey && data.encrypted) {
-                                try { chunkData = Crypto.decrypt(chunkData, PeerNet.encryptionKey); } catch (e) {
-                                    conn.send({ type: 'chunk-error', id: currentFile.id, seq: data.seq,
-                                        message: 'Decrypt failed' });
-                                    return;
-                                }
+                                try { chunkData = Crypto.decrypt(chunkData, PeerNet.encryptionKey); }
+                                catch (e) { conn.send({ type: 'chunk-error', id: currentFile.id, seq: data.seq, message: 'Decrypt failed' }); return; }
                             }
                             if (data.checksum && PeerNet.securityMode === 'paranoid') {
                                 const cs = Crypto.checksum(chunkData);
                                 if (cs !== data.checksum) {
-                                    conn.send({ type: 'chunk-error', id: currentFile.id, seq: data.seq,
-                                        message: 'Checksum mismatch' });
+                                    conn.send({ type: 'chunk-error', id: currentFile.id, seq: data.seq, message: 'Checksum mismatch' });
                                     Transfer.stats.retries++;
                                     DOM.get('retry-display').textContent = Transfer.stats.retries;
                                     return;
@@ -1150,9 +1073,9 @@
                             DOM.get('chunk-display').textContent = Transfer.stats.chunks;
                             Transfer.updateMasterProgress();
                             Transfer.renderQueue();
-                            setTimeout(() => { conn.send({ type: 'ack-chunk', id: currentFile.id, seq: data
-                                    .seq }); }, PeerNet.throttleMs / 2);
-                        } else if (data.type === 'file-done') {
+                            setTimeout(() => { conn.send({ type: 'ack-chunk', id: currentFile.id, seq: data.seq }); }, PeerNet.throttleMs / 2);
+                        }
+                        else if (data.type === 'file-done') {
                             if (!currentFile) return;
                             currentFile.status = 'complete';
                             Transfer.updateMasterProgress();
@@ -1162,15 +1085,16 @@
                                 DOM.get('transfer-status').textContent = 'Complete';
                                 setTimeout(() => PeerNet.showDone(), 400);
                             }
-                        } else if (data.type === 'all-done') {
+                        }
+                        else if (data.type === 'all-done') {
                             DOM.get('transfer-status').textContent = 'All done';
                             setTimeout(() => PeerNet.showDone(), 400);
-                        } else if (data.type === 'cancel') { showError('Cancelled', 'Sender cancelled.'); } else if (
-                            data.type === 'error') { showError('Sender error', data.message ||
-                            'Error on sender side.'); }
+                        }
+                        else if (data.type === 'cancel') { showError('Cancelled', 'Sender cancelled.'); }
+                        else if (data.type === 'error') { showError('Sender error', data.message || 'Error on sender side.'); }
                     } else {
-                        if (data.type === 'ack-manifest') { DOM.get('transfer-status').textContent =
-                            'Started'; } else if (data.type === 'ack-header') {
+                        if (data.type === 'ack-manifest') { DOM.get('transfer-status').textContent = 'Started'; }
+                        else if (data.type === 'ack-header') {
                             const fileItem = Transfer.queue.find(q => q.id === data.id);
                             if (fileItem) {
                                 fileItem.status = 'active';
@@ -1178,36 +1102,37 @@
                                 Transfer.renderQueue();
                                 PeerNet.sendChunks(fileItem, conn);
                             }
-                        } else if (data.type === 'ack-chunk') { /* flow continues */ } else if (data.type ===
-                            'chunk-error') {
+                        }
+                        else if (data.type === 'ack-chunk') { }
+                        else if (data.type === 'chunk-error') {
                             Toast.show('Chunk error: ' + data.message, 'warning');
                             Transfer.stats.retries++;
                             DOM.get('retry-display').textContent = Transfer.stats.retries;
-                        } else if (data.type === 'ack-file-done') {
+                        }
+                        else if (data.type === 'ack-file-done') {
                             const fileItem = Transfer.queue.find(q => q.id === data.id);
                             if (fileItem) {
                                 fileItem.status = 'complete';
                                 Transfer.updateMasterProgress();
                                 Transfer.renderQueue();
                                 const next = Transfer.queue.find(q => q.status === 'pending');
-                                if (next) { setTimeout(() => PeerNet.sendFileHeader(next, conn),
-                                        PeerNet.throttleMs); } else if (Transfer.queue.every(q => q.status ===
-                                        'complete')) {
+                                if (next) { setTimeout(() => PeerNet.sendFileHeader(next, conn), PeerNet.throttleMs); }
+                                else if (Transfer.queue.every(q => q.status === 'complete')) {
                                     conn.send({ type: 'all-done' });
                                     DOM.get('transfer-status').textContent = 'All sent';
                                     setTimeout(() => PeerNet.showDone(), 400);
                                 }
                             }
-                        } else if (data.type === 'cancel') { showError('Cancelled', 'Receiver cancelled.'); }
+                        }
+                        else if (data.type === 'cancel') { showError('Cancelled', 'Receiver cancelled.'); }
                     }
                 });
 
                 conn.on('close', () => {
                     updateStatus('Closed', 'danger');
                     const allComplete = Transfer.queue.every(q => q.status === 'complete');
-                    if (allComplete && State.current !== 'done') { PeerNet.showDone(); } else if (!allComplete &&
-                        State.current === 'transfer') { showError('Lost', 'Peer disconnected before completion.',
-                        { canRetry: true }); }
+                    if (allComplete && State.current !== 'done') { PeerNet.showDone(); }
+                    else if (!allComplete && State.current === 'transfer') { showError('Lost', 'Peer disconnected before completion.', { canRetry: true }); }
                 });
 
                 conn.on('error', (err) => { showError('Channel error', err.message || 'Data channel failed.'); });
@@ -1217,8 +1142,8 @@
                     const btnText = DOM.get('pause-btn-text');
                     const btnIcon = DOM.get('pause-icon');
                     btnText.textContent = Transfer.isPaused ? 'Resume' : 'Pause';
-                    btnIcon.className = Transfer.isPaused ? 'ph ph-play text-base' : 'ph ph-pause text-base';
-                    Toast.show(Transfer.isPaused ? 'Paused — Space to resume' : 'Resumed', 'info');
+                    btnIcon.className = Transfer.isPaused ? 'ph ph-play text-sm' : 'ph ph-pause text-sm';
+                    Toast.show(Transfer.isPaused ? 'Paused' : 'Resumed', 'info');
                 };
 
                 DOM.get('break-btn').onclick = () => {
@@ -1232,8 +1157,7 @@
                 DOM.get('cancel-transfer-btn').onclick = () => {
                     if (confirm('Cancel all transfers?')) {
                         conn.send({ type: 'cancel' });
-                        setTimeout(() => { conn.close();
-                            showError('Cancelled', 'You cancelled.'); }, 300);
+                        setTimeout(() => { conn.close(); showError('Cancelled', 'You cancelled.'); }, 300);
                     }
                 };
             },
@@ -1247,8 +1171,7 @@
                 fileItem.status = 'active';
                 Transfer.currentIndex = Transfer.queue.indexOf(fileItem);
                 Transfer.renderQueue();
-                const header = { type: 'file-header', id: fileItem.id, name: fileItem.name, size: fileItem.size,
-                    filetype: fileItem.type };
+                const header = { type: 'file-header', id: fileItem.id, name: fileItem.name, size: fileItem.size, filetype: fileItem.type };
                 if (PeerNet.securityMode === 'paranoid') header.checksum = 'pending';
                 conn.send(header);
             },
@@ -1270,6 +1193,7 @@
                         conn.send({ type: 'file-done', id: fileItem.id });
                         return;
                     }
+
                     const end = Math.min(offset + CONFIG.CHUNK_SIZE, file.size);
                     const slice = file.slice(offset, end);
                     const reader = new FileReader();
@@ -1283,10 +1207,11 @@
                             encrypted = true;
                         }
                         if (PeerNet.securityMode === 'paranoid') checksum = Crypto.checksum(payload);
-                        const chunkMsg = { type: 'chunk', id: fileItem.id, seq: seq, data: payload,
-                            encrypted: encrypted };
+
+                        const chunkMsg = { type: 'chunk', id: fileItem.id, seq: seq, data: payload, encrypted: encrypted };
                         if (checksum) chunkMsg.checksum = checksum;
                         conn.send(chunkMsg);
+
                         offset += buffer.byteLength;
                         seq++;
                         fileItem.sent = offset;
@@ -1296,6 +1221,7 @@
                         Transfer.updateMasterProgress();
                         Transfer.renderQueue();
                         DOM.get('rtt-display').textContent = Math.floor(Math.random() * 40 + 15);
+
                         if (PeerNet.throttleMs > 0) setTimeout(sendNext, PeerNet.throttleMs);
                         else setTimeout(sendNext, 0);
                     };
@@ -1313,13 +1239,12 @@
                     ['Files', '' + Transfer.queue.length],
                     ['Total', formatBytes(Transfer.stats.totalBytes)],
                     ['Duration', formatDuration(duration)],
-                    ['Speed', Transfer.stats.totalBytes > 0 && duration > 0 ? (Transfer.stats.totalBytes / duration *
-                        1000 / 1024 / 1024).toFixed(1) + ' MB/s' : '--'],
+                    ['Speed', Transfer.stats.totalBytes > 0 && duration > 0 ? (Transfer.stats.totalBytes / duration * 1000 / 1024 / 1024).toFixed(1) + ' MB/s' : '--'],
                     ['Chunks', '' + Transfer.stats.chunks],
                     ['Retries', '' + Transfer.stats.retries],
                 ];
                 stats.forEach(([label, value]) => {
-                    summary.appendChild(DOM.create('div', 'flex justify-between text-xs', {}, [
+                    summary.appendChild(DOM.create('div', 'flex justify-between text-sm', {}, [
                         DOM.create('span', 'text-slate-500', { text: label }),
                         DOM.create('span', 'text-slate-200 font-medium', { text: value }),
                     ]));
@@ -1328,7 +1253,6 @@
                 const filesContainer = DOM.get('done-files-container');
                 const filesList = DOM.get('done-file-list');
                 DOM.clear(filesList);
-                DOM.hide(filesContainer);
 
                 if (PeerNet.isReceiver && Transfer.queue.some(q => q.buffers.length > 0)) {
                     DOM.show(filesContainer);
@@ -1338,27 +1262,20 @@
                             const url = URL.createObjectURL(blob);
                             q.downloadUrl = url;
                             const iconName = getPhosphorIcon(getFileIconName(q.name));
-                            const row = DOM.create('div',
-                                'flex items-center gap-2.5 px-3 py-2 rounded-3xl', {}, [
-                                    DOM.create('div', 'bg-bg p-1.5 rounded-3xl text-slate-400 flex-shrink-0',
-                                        {}, [icon(iconName, 'text-sm')]),
-                                    DOM.create('div', 'flex-1 min-w-0 text-left', {}, [
-                                        DOM.create('p',
-                                            'text-xs font-medium text-slate-200 truncate', { text: q
-                                                .name }),
-                                        DOM.create('p', 'text-[10px] text-slate-500', { text: formatBytes(q
-                                                .size) }),
-                                    ]),
-                                    DOM.create('a',
-                                        'bg-brand hover:bg-brand/90 text-bg text-[10px] font-bold px-3 py-1.5 rounded-3xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 flex-shrink-0',
-                                        { href: url, download: q.name, text: 'Download' }),
-                                ]);
+                            const row = DOM.create('div', 'flex items-center gap-3 px-3 py-2.5 rounded-3xl', {}, [
+                                DOM.create('div', 'bg-bg p-2 rounded-3xl text-slate-400', {}, [icon(iconName, 'text-lg')]),
+                                DOM.create('div', 'flex-1 min-w-0 text-left', {}, [
+                                    DOM.create('p', 'text-sm font-medium text-slate-200 truncate', { text: q.name }),
+                                    DOM.create('p', 'text-xs text-slate-500', { text: formatBytes(q.size) }),
+                                ]),
+                                DOM.create('a', 'bg-brand hover:bg-brand/90 text-bg text-xs font-bold px-3 py-2 rounded-3xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50', {
+                                    href: url, download: q.name, text: 'Download'
+                                }),
+                            ]);
                             filesList.appendChild(row);
                         }
                     });
-                    const downloadAll = DOM.create('button',
-                        'w-full mt-2 bg-elevated hover:bg-white/5 text-slate-200 py-2 rounded-3xl font-medium transition-colors text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50',
-                        { text: 'Download All' });
+                    const downloadAll = DOM.create('button', 'w-full mt-2 bg-bg hover:bg-white/5 text-slate-200 py-2.5 rounded-3xl font-medium transition-colors text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50', { text: 'Download All' });
                     downloadAll.addEventListener('click', () => {
                         Transfer.queue.forEach((q, i) => {
                             if (q.downloadUrl) {
@@ -1375,41 +1292,12 @@
                         });
                     });
                     filesList.appendChild(downloadAll);
+                } else {
+                    DOM.hide(filesContainer);
                 }
-
-                DOM.hide(DOM.get('done-summary-wrapper'));
-                const toggleBtn = DOM.get('toggle-summary-btn');
-                const caret = DOM.get('summary-caret');
-                toggleBtn.setAttribute('aria-expanded', 'false');
-                caret.style.transform = 'rotate(0deg)';
-                toggleBtn.querySelector('span').textContent = 'Details';
-
                 State.go('done');
             },
         };
-
-        // ============================================================
-        // DONE SUMMARY TOGGLE
-        // ============================================================
-        (function initSummaryToggle() {
-            const toggleBtn = DOM.get('toggle-summary-btn');
-            const wrapper = DOM.get('done-summary-wrapper');
-            const caret = DOM.get('summary-caret');
-            toggleBtn.addEventListener('click', () => {
-                const isOpen = !wrapper.classList.contains('hidden');
-                if (isOpen) {
-                    DOM.hide(wrapper);
-                    toggleBtn.setAttribute('aria-expanded', 'false');
-                    caret.style.transform = 'rotate(0deg)';
-                    toggleBtn.querySelector('span').textContent = 'Details';
-                } else {
-                    DOM.show(wrapper);
-                    toggleBtn.setAttribute('aria-expanded', 'true');
-                    caret.style.transform = 'rotate(180deg)';
-                    toggleBtn.querySelector('span').textContent = 'Hide';
-                }
-            });
-        })();
 
         // ============================================================
         // ERROR & STATUS
@@ -1437,8 +1325,7 @@
             const retryBtn = DOM.get('retry-btn');
             if (details.canRetry && PeerNet.isReceiver) {
                 DOM.show(retryBtn);
-                retryBtn.onclick = () => { State.go('transfer');
-                    PeerNet.startReceiver(); };
+                retryBtn.onclick = () => { State.go('transfer'); PeerNet.startReceiver(); };
             } else {
                 DOM.hide(retryBtn);
             }
@@ -1449,8 +1336,7 @@
             const dot = DOM.get('status-dot');
             const ping = DOM.get('status-ping');
             const label = DOM.get('status-text');
-            const map = { success: 'bg-emerald-500', danger: 'bg-red-500', warning: 'bg-amber-500',
-            info: 'bg-blue-500' };
+            const map = { success: 'bg-emerald-500', danger: 'bg-red-500', warning: 'bg-amber-500', info: 'bg-blue-500' };
             const bg = map[color] || 'bg-slate-500';
             dot.className = 'relative inline-flex rounded-full h-2 w-2 ' + bg;
             ping.className = 'animate-ping absolute inline-flex h-full w-full rounded-full ' + bg + ' opacity-75';
@@ -1473,7 +1359,8 @@
                     }
                 });
                 Settings.init();
-                Keyboard.init();
+                Shortcuts.init();
+                Summary.init();
                 PeerNet.init();
             },
             reset: () => { window.location.href = window.location.pathname; }
