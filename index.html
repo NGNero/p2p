@@ -1,1372 +1,1285 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Peer-to-peer file transfer">
-    <title>DropZone — P2P Transfer</title>
-
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,100..900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css">
-
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        brand: '#a8c7fa',
-                        bg: '#0e0e0f',
-                        surface: '#171717',
-                        panel: '#1f1e1e',
-                        success: '#34d399',
-                        danger: '#f87171',
-                        warning: '#fbbf24',
-                    },
-                    fontFamily: {
-                        sans: ['"Inter"', 'system-ui', 'sans-serif'],
-                    },
-                    animation: {
-                        'fade-in': 'fadeIn 0.2s ease-out forwards',
-                        'fade-out': 'fadeOut 0.15s ease-in forwards',
-                        'slide-up': 'slideUp 0.3s ease-out forwards',
-                        'slide-down': 'slideDown 0.2s ease-out forwards',
-                        'pulse-slow': 'pulse 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-                    },
-                    keyframes: {
-                        fadeIn: {
-                            '0%': { opacity: '0', transform: 'translateY(6px)' },
-                            '100%': { opacity: '1', transform: 'translateY(0)' },
-                        },
-                        fadeOut: {
-                            '0%': { opacity: '1', transform: 'translateY(0)' },
-                            '100%': { opacity: '0', transform: 'translateY(-4px)' },
-                        },
-                        slideUp: {
-                            '0%': { opacity: '0', transform: 'translateY(12px) scale(0.97)' },
-                            '100%': { opacity: '1', transform: 'translateY(0) scale(1)' },
-                        },
-                        slideDown: {
-                            '0%': { opacity: '0', transform: 'translateY(-8px) scale(0.97)' },
-                            '100%': { opacity: '1', transform: 'translateY(0) scale(1)' },
-                        }
-                    }
-                }
-            }
-        }
-    </script>
-
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
-
-    <style>
-        @media (prefers-reduced-motion: reduce) {
-            *, *::before, *::after {
-                animation-duration: 0.01ms !important;
-                animation-iteration-count: 1 !important;
-                transition-duration: 0.01ms !important;
-            }
-        }
-        ::-webkit-scrollbar { width: 5px; height: 5px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.06); border-radius: 24px; }
-        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.12); }
-    </style>
-<base target="_blank">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="DropZone — Secure peer-to-peer file transfer">
+<title>DropZone — P2P Transfer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        brand: '#a8c7fa',
+        bg: '#0e0e0f',
+        panel: '#171717',
+        surface: '#1f1e1e',
+        input: '#252525',
+        success: '#34d399',
+        danger: '#f87171',
+        warning: '#fbbf24',
+      },
+      fontFamily: {
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+      },
+      animation: {
+        'fade-in': 'fadeIn 0.22s ease-out forwards',
+        'fade-out': 'fadeOut 0.18s ease-in forwards',
+        'scale-in': 'scaleIn 0.28s cubic-bezier(0.34,1.56,0.64,1) forwards',
+        'slide-up': 'slideUp 0.3s ease-out forwards',
+        'spin-slow': 'spin 1.6s linear infinite',
+      },
+      keyframes: {
+        fadeIn: {
+          '0%': { opacity: '0', transform: 'translateY(6px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        fadeOut: {
+          '0%': { opacity: '1', transform: 'translateY(0)' },
+          '100%': { opacity: '0', transform: 'translateY(-4px)' },
+        },
+        scaleIn: {
+          '0%': { opacity: '0', transform: 'scale(0.94)' },
+          '100%': { opacity: '1', transform: 'scale(1)' },
+        },
+        slideUp: {
+          '0%': { opacity: '0', transform: 'translateY(12px) scale(0.97)' },
+          '100%': { opacity: '1', transform: 'translateY(0) scale(1)' },
+        },
+      },
+      borderRadius: {
+        '4xl': '2rem',
+      }
+    }
+  }
+}
+</script>
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
 </head>
-<body class="bg-bg text-slate-100 font-sans antialiased min-h-screen flex flex-col selection:bg-brand selection:text-bg">
+<body class="bg-bg text-slate-100 font-sans antialiased min-h-screen flex flex-col selection:bg-brand/30 selection:text-brand">
 
-    <!-- Toast Container -->
-    <div id="toast-container" class="fixed top-16 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-2 pointer-events-none w-full max-w-sm px-4"></div>
+<!-- Toast -->
+<div id="toast-container" class="fixed top-[72px] left-1/2 -translate-x-1/2 z-50 flex flex-col gap-2 pointer-events-none w-full max-w-sm px-4"></div>
 
-    <!-- Navbar -->
-    <nav class="fixed top-0 left-0 right-0 z-40 bg-bg px-5 py-3 flex items-center justify-between" role="banner">
-        <div class="flex items-center gap-2.5 cursor-pointer" onclick="App.reset()" role="button" tabindex="0" aria-label="Reset application">
-            <div class="bg-brand/10 text-brand p-2 rounded-3xl">
-                <i class="ph ph-lightning text-xl" aria-hidden="true"></i>
-            </div>
-            <span class="text-lg font-bold tracking-tight">DropZone</span>
-        </div>
-        <div class="flex items-center gap-3">
-            <button id="settings-toggle" class="p-2 rounded-3xl hover:bg-surface transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50" aria-label="Open settings" aria-expanded="false" aria-haspopup="dialog">
-                <i class="ph ph-gear text-lg text-slate-300" aria-hidden="true"></i>
-            </button>
-            <div class="flex items-center gap-2 text-sm text-slate-400" aria-live="polite" aria-atomic="true">
-                <span class="relative flex h-2 w-2" aria-hidden="true">
-                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-slate-500 opacity-75" id="status-ping"></span>
-                    <span class="relative inline-flex rounded-full h-2 w-2 bg-slate-500" id="status-dot"></span>
-                </span>
-                <span id="status-text">Initializing</span>
-            </div>
-        </div>
-    </nav>
+<!-- Navbar -->
+<header role="banner" class="fixed top-0 left-0 right-0 z-40 bg-bg/90 backdrop-blur-xl border-b border-white/[0.04] px-5 py-3 flex items-center justify-between">
+  <div class="flex items-center gap-2.5">
+    <button id="logo-btn" class="flex items-center gap-2.5 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 rounded-2xl p-1 -m-1" aria-label="DropZone — go to home">
+      <div class="bg-brand/10 text-brand p-[7px] rounded-2xl group-hover:bg-brand/15 transition-colors">
+        <i class="ph ph-lightning text-[18px] leading-none" aria-hidden="true"></i>
+      </div>
+      <span class="text-base font-semibold tracking-tight text-white">DropZone</span>
+    </button>
+  </div>
+  <div class="flex items-center gap-2.5">
+    <button id="settings-toggle" class="p-2 rounded-2xl hover:bg-surface transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50" aria-label="Open settings" aria-expanded="false" aria-controls="settings-popover">
+      <i class="ph ph-sliders text-[17px] text-slate-400" aria-hidden="true"></i>
+    </button>
+    <div class="flex items-center gap-2 text-sm text-slate-500 pl-0.5" role="status" aria-live="polite" aria-label="Connection status">
+      <span class="relative flex h-2 w-2" aria-hidden="true">
+        <span id="status-ping" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-slate-500 opacity-50"></span>
+        <span id="status-dot" class="relative inline-flex rounded-full h-2 w-2 bg-slate-500"></span>
+      </span>
+      <span id="status-text" class="text-xs font-medium">Initializing</span>
+    </div>
+  </div>
+</header>
 
-    <!-- Settings Popover -->
-    <div id="settings-popover" class="hidden fixed top-12 right-4 w-72 bg-surface rounded-3xl shadow-2xl shadow-black/70 p-5 z-50 animate-slide-down" role="dialog" aria-label="Settings" aria-modal="true">
-        <div class="flex items-center justify-between mb-5">
-            <h3 class="text-sm font-bold text-white">Settings</h3>
-            <button onclick="Settings.close()" class="p-1.5 hover:bg-panel rounded-3xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50" aria-label="Close settings">
-                <i class="ph ph-x text-slate-400" aria-hidden="true"></i>
-            </button>
-        </div>
-        <div class="space-y-5">
-            <div>
-                <label class="text-xs text-slate-400 block mb-2 font-medium">Transfer Speed</label>
-                <div class="relative">
-                    <select id="throttle-select" class="w-full bg-panel rounded-3xl px-4 py-3 text-sm text-slate-200 appearance-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 cursor-pointer">
-                        <option value="0">Unlimited</option>
-                        <option value="50" selected>Slow — test recovery</option>
-                        <option value="200">Very Slow</option>
-                        <option value="500">Glacial</option>
-                    </select>
-                    <i class="ph ph-caret-down absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" aria-hidden="true"></i>
-                </div>
-            </div>
-            <div>
-                <label class="text-xs text-slate-400 block mb-2 font-medium">Security</label>
-                <div class="relative">
-                    <select id="security-select" class="w-full bg-panel rounded-3xl px-4 py-3 text-sm text-slate-200 appearance-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 cursor-pointer">
-                        <option value="none">Standard</option>
-                        <option value="encrypt" selected>Encrypted</option>
-                        <option value="paranoid">Paranoid</option>
-                    </select>
-                    <i class="ph ph-caret-down absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" aria-hidden="true"></i>
-                </div>
-            </div>
-            <div class="pt-2">
-                <button id="shortcut-help-btn" class="w-full flex items-center gap-2 text-xs text-slate-500 hover:text-slate-300 transition-colors p-2 rounded-3xl hover:bg-panel focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
-                    <i class="ph ph-keyboard" aria-hidden="true"></i>
-                    <span>Keyboard shortcuts</span>
-                </button>
-            </div>
-        </div>
+<!-- Settings Popover -->
+<div id="settings-popover" role="dialog" aria-modal="true" aria-label="Settings" class="hidden fixed top-[58px] right-4 w-[300px] bg-panel border border-white/[0.07] rounded-3xl shadow-2xl shadow-black/70 p-5 z-50 animate-slide-up">
+  <div class="flex items-center justify-between mb-5">
+    <h2 class="text-sm font-semibold text-white">Settings</h2>
+    <button id="settings-close" class="p-1.5 hover:bg-surface rounded-xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50" aria-label="Close settings">
+      <i class="ph ph-x text-slate-400 text-sm" aria-hidden="true"></i>
+    </button>
+  </div>
+
+  <div class="space-y-4">
+    <!-- Speed -->
+    <div>
+      <label for="throttle-select" class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">Transfer Speed</label>
+      <div class="relative">
+        <select id="throttle-select" class="w-full bg-input border border-white/[0.06] rounded-2xl px-3.5 py-2.5 text-sm text-slate-200 appearance-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 cursor-pointer pr-8">
+          <option value="0">Unlimited</option>
+          <option value="20">Fast — 20ms delay</option>
+          <option value="50" selected>Normal — 50ms delay</option>
+          <option value="200">Slow — test recovery</option>
+          <option value="500">Glacial</option>
+        </select>
+        <i class="ph ph-caret-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs pointer-events-none" aria-hidden="true"></i>
+      </div>
     </div>
 
-    <!-- Shortcut Help Modal -->
-    <div id="shortcut-modal" class="hidden fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm" role="dialog" aria-label="Keyboard shortcuts" aria-modal="true">
-        <div class="bg-surface rounded-3xl p-6 w-full max-w-sm mx-4 animate-slide-up">
-            <div class="flex items-center justify-between mb-5">
-                <h3 class="text-sm font-bold text-white">Shortcuts</h3>
-                <button onclick="Shortcuts.close()" class="p-1.5 hover:bg-panel rounded-3xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50" aria-label="Close shortcuts">
-                    <i class="ph ph-x text-slate-400" aria-hidden="true"></i>
-                </button>
-            </div>
-            <div class="space-y-3 text-sm">
-                <div class="flex justify-between items-center"><span class="text-slate-400">Select files</span><kbd class="bg-panel px-2 py-1 rounded-lg text-xs text-slate-300 font-mono">Ctrl+O</kbd></div>
-                <div class="flex justify-between items-center"><span class="text-slate-400">Prepare transfer</span><kbd class="bg-panel px-2 py-1 rounded-lg text-xs text-slate-300 font-mono">Enter</kbd></div>
-                <div class="flex justify-between items-center"><span class="text-slate-400">Pause / Resume</span><kbd class="bg-panel px-2 py-1 rounded-lg text-xs text-slate-300 font-mono">Space</kbd></div>
-                <div class="flex justify-between items-center"><span class="text-slate-400">Cancel / Reset</span><kbd class="bg-panel px-2 py-1 rounded-lg text-xs text-slate-300 font-mono">Escape</kbd></div>
-                <div class="flex justify-between items-center"><span class="text-slate-400">Copy link</span><kbd class="bg-panel px-2 py-1 rounded-lg text-xs text-slate-300 font-mono">Ctrl+C</kbd></div>
-                <div class="flex justify-between items-center"><span class="text-slate-400">Settings</span><kbd class="bg-panel px-2 py-1 rounded-lg text-xs text-slate-300 font-mono">Ctrl+,</kbd></div>
-            </div>
-        </div>
+    <!-- Security -->
+    <div>
+      <label for="security-select" class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">Security Mode</label>
+      <div class="relative">
+        <select id="security-select" class="w-full bg-input border border-white/[0.06] rounded-2xl px-3.5 py-2.5 text-sm text-slate-200 appearance-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 cursor-pointer pr-8">
+          <option value="none">Standard WebRTC</option>
+          <option value="encrypt" selected>XOR Encrypted</option>
+          <option value="paranoid">Paranoid + Checksums</option>
+        </select>
+        <i class="ph ph-caret-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs pointer-events-none" aria-hidden="true"></i>
+      </div>
     </div>
 
-    <!-- Main Content -->
-    <main class="flex-1 w-full overflow-y-auto pt-14 pb-6 px-4 md:px-8 flex flex-col items-center justify-center relative min-h-0">
+    <!-- Chunk Size -->
+    <div>
+      <label for="chunk-select" class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">Chunk Size</label>
+      <div class="relative">
+        <select id="chunk-select" class="w-full bg-input border border-white/[0.06] rounded-2xl px-3.5 py-2.5 text-sm text-slate-200 appearance-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 cursor-pointer pr-8">
+          <option value="16384">16 KB — slower / reliable</option>
+          <option value="32768" selected>32 KB — balanced</option>
+          <option value="65536">64 KB — faster</option>
+          <option value="131072">128 KB — fast / large files</option>
+        </select>
+        <i class="ph ph-caret-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs pointer-events-none" aria-hidden="true"></i>
+      </div>
+    </div>
 
-        <!-- STATE: UPLOAD -->
-        <div id="state-upload" class="w-full max-w-lg flex flex-col gap-4 hidden">
-            <div class="text-center mb-1">
-                <h1 class="text-3xl md:text-4xl font-black tracking-tight text-white">Direct P2P Transfer</h1>
-                <p class="text-slate-400 mt-1.5 text-sm">Send files directly. No cloud. No accounts.</p>
-            </div>
+    <!-- Auto-download -->
+    <div class="flex items-center justify-between">
+      <div>
+        <p class="text-sm text-slate-300 font-medium">Auto-download</p>
+        <p class="text-[11px] text-slate-500 mt-0.5">Download files automatically on completion</p>
+      </div>
+      <button id="auto-download-toggle" role="switch" aria-checked="false" class="relative w-10 h-5 rounded-full bg-surface border border-white/[0.08] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50" aria-label="Toggle auto-download">
+        <span id="auto-download-knob" class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-slate-500 transition-all duration-200"></span>
+      </button>
+    </div>
 
-            <label id="dropzone" class="bg-surface rounded-3xl flex flex-col items-center justify-center cursor-pointer transition-all duration-300 hover:bg-surface/80 min-h-[200px] group focus-within:ring-2 focus-within:ring-brand/50" tabindex="0" role="button" aria-label="Drop files here or press to browse">
-                <div class="bg-bg p-3.5 rounded-3xl mb-3 group-hover:scale-105 transition-transform duration-300 text-slate-400 group-hover:text-brand group-focus:text-brand">
-                    <i class="ph ph-upload-simple text-2xl" aria-hidden="true"></i>
-                </div>
-                <span class="text-base font-semibold text-slate-200 group-hover:text-white transition-colors">Drop files or click to browse</span>
-                <span class="text-slate-500 mt-1 text-xs">Up to 50 files</span>
-                <input type="file" id="file-input" class="hidden" multiple aria-label="File input">
-            </label>
+    <!-- Divider -->
+    <div class="h-px bg-white/[0.05]"></div>
 
-            <div id="file-list-container" class="hidden bg-surface rounded-3xl overflow-hidden">
-                <div class="px-4 py-2.5 flex justify-between items-center">
-                    <span class="text-sm font-medium text-slate-300" id="file-count-label">0 files</span>
-                    <button id="clear-files-btn" class="text-slate-500 hover:text-danger p-2 rounded-3xl hover:bg-danger/5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50" aria-label="Remove all files">
-                        <i class="ph ph-trash text-sm" aria-hidden="true"></i>
-                    </button>
-                </div>
-                <div id="file-list" class="max-h-44 overflow-y-auto px-2 pb-1"></div>
-                <div class="px-4 py-2.5 flex justify-between items-center">
-                    <span class="text-xs text-slate-500" id="total-size-label">0 MB</span>
-                    <button id="confirm-files-btn" class="bg-brand hover:bg-brand/90 text-bg font-bold px-5 py-2 rounded-3xl text-sm transition-all shadow-lg shadow-brand/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
-                        Prepare
-                    </button>
-                </div>
-            </div>
-        </div>
+    <!-- Info -->
+    <div class="bg-input rounded-2xl p-3 space-y-1.5 text-xs text-slate-500">
+      <div class="flex justify-between">
+        <span>Max files</span><span class="text-slate-400">50</span>
+      </div>
+      <div class="flex justify-between">
+        <span>Max file</span><span class="text-slate-400">2 GB</span>
+      </div>
+      <div class="flex justify-between">
+        <span>Max total</span><span class="text-slate-400">5 GB</span>
+      </div>
+    </div>
+  </div>
+</div>
 
-        <!-- STATE: SHARE -->
-        <div id="state-share" class="hidden w-full max-w-sm flex flex-col items-center text-center bg-surface p-5 md:p-6 rounded-3xl gap-4">
-            <div>
-                <h2 class="text-xl font-bold text-white">Ready</h2>
-                <p class="text-xs text-slate-400 mt-1">Scan or share the link. Keep this open.</p>
-            </div>
+<!-- Main -->
+<main id="main-content" class="flex-1 w-full overflow-y-auto pt-[68px] pb-8 px-4 md:px-8 flex flex-col items-center justify-center" role="main">
 
-            <div class="bg-white p-2.5 rounded-3xl shadow-2xl">
-                <canvas id="qrcode" class="w-40 h-40 rounded-2xl" aria-label="QR code for connection"></canvas>
-            </div>
+  <!-- STATE: UPLOAD -->
+  <div id="state-upload" class="hidden w-full max-w-xl flex flex-col gap-4">
+    <div class="mb-1">
+      <h1 class="text-3xl font-bold tracking-tight text-white">Send files</h1>
+      <p class="text-slate-500 text-sm mt-1">Direct. Encrypted. No cloud.</p>
+    </div>
 
-            <div class="w-full flex gap-2">
-                <button id="copy-link-btn" class="flex-1 flex items-center justify-center gap-2 bg-bg hover:bg-white/5 text-slate-200 py-2.5 rounded-3xl font-medium transition-colors text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
-                    <i class="ph ph-copy text-base" aria-hidden="true"></i>
-                    Copy Link
-                </button>
-                <button id="copy-key-btn" class="flex-1 flex items-center justify-center gap-2 bg-bg hover:bg-white/5 text-slate-200 py-2.5 rounded-3xl font-medium transition-colors text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
-                    <i class="ph ph-key text-base" aria-hidden="true"></i>
-                    Copy Key
-                </button>
-            </div>
+    <!-- Dropzone -->
+    <label id="dropzone" class="bg-panel border-2 border-dashed border-white/[0.08] hover:border-brand/40 rounded-3xl flex flex-col items-center justify-center cursor-pointer transition-all duration-200 min-h-[200px] group focus-within:border-brand/40 focus-within:ring-2 focus-within:ring-brand/20">
+      <div class="bg-surface/60 p-3.5 rounded-2xl mb-3 group-hover:scale-105 transition-transform duration-200 text-slate-500 group-hover:text-brand">
+        <i class="ph ph-upload-simple text-2xl" aria-hidden="true"></i>
+      </div>
+      <span class="text-sm font-semibold text-slate-300 group-hover:text-white transition-colors">Drop files or click to browse</span>
+      <span class="text-slate-600 mt-1 text-xs">Up to 50 files · 2 GB each</span>
+      <input type="file" id="file-input" class="sr-only" multiple aria-label="Select files to send">
+    </label>
 
-            <div class="w-full bg-bg rounded-3xl overflow-hidden text-left">
-                <div class="px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">Files</div>
-                <div id="share-file-list" class="max-h-32 overflow-y-auto px-2 pb-1"></div>
-            </div>
+    <!-- File List -->
+    <div id="file-list-container" class="hidden bg-panel border border-white/[0.05] rounded-3xl overflow-hidden">
+      <div class="px-4 py-3 flex justify-between items-center border-b border-white/[0.04]">
+        <span class="text-xs font-semibold text-slate-400" id="file-count-label" aria-live="polite">0 files</span>
+        <button id="clear-files-btn" class="text-xs text-slate-500 hover:text-danger flex items-center gap-1.5 p-1.5 rounded-xl hover:bg-danger/5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50" aria-label="Remove all files">
+          <i class="ph ph-trash text-sm" aria-hidden="true"></i>
+          Clear all
+        </button>
+      </div>
+      <div id="file-list" class="max-h-48 overflow-y-auto" role="list" aria-label="Selected files"></div>
+      <div class="px-4 py-3 flex justify-between items-center border-t border-white/[0.04]">
+        <span class="text-xs text-slate-500" id="total-size-label">—</span>
+        <button id="confirm-files-btn" class="bg-brand hover:bg-brand/85 text-bg font-semibold px-5 py-2 rounded-2xl text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60">
+          Continue
+        </button>
+      </div>
+    </div>
+  </div>
 
-            <div class="w-full flex items-center justify-between bg-bg rounded-3xl p-2.5">
-                <div class="flex items-center gap-2">
-                    <div class="bg-brand/10 p-1.5 rounded-3xl text-brand">
-                        <i class="ph ph-shield-check text-base" aria-hidden="true"></i>
-                    </div>
-                    <div class="text-left">
-                        <p class="text-xs font-medium text-slate-200">Encrypted</p>
-                        <p class="text-[11px] text-slate-500" id="security-badge-text">XOR stream</p>
-                    </div>
-                </div>
-                <span class="flex items-center gap-1 text-brand font-bold text-[11px] bg-brand/10 px-2.5 py-1 rounded-full animate-pulse">
-                    <i class="ph ph-spinner animate-spin text-[10px]" aria-hidden="true"></i>
-                    Waiting
-                </span>
-            </div>
-        </div>
+  <!-- STATE: SHARE -->
+  <div id="state-share" class="hidden w-full max-w-md flex flex-col items-center bg-panel border border-white/[0.05] p-6 rounded-3xl gap-5">
+    <div class="text-center">
+      <h2 class="text-xl font-bold text-white">Share with receiver</h2>
+      <p class="text-sm text-slate-500 mt-1">Keep this page open while waiting.</p>
+    </div>
 
-        <!-- STATE: TRANSFER -->
-        <div id="state-transfer" class="hidden w-full max-w-xl flex flex-col bg-surface p-5 md:p-6 rounded-3xl gap-4">
-            <div class="flex justify-between items-end">
-                <div>
-                    <h2 id="transfer-status" class="text-xl md:text-2xl font-black text-white">Initializing</h2>
-                    <p id="transfer-subtitle" class="text-slate-400 text-xs mt-0.5">Establishing channel</p>
-                </div>
-                <div class="text-right">
-                    <p id="transfer-speed" class="text-base font-bold text-brand">--</p>
-                    <p id="transfer-eta" class="text-slate-500 text-[11px]">Calculating</p>
-                </div>
-            </div>
+    <div class="bg-white p-3 rounded-2xl shadow-xl">
+      <canvas id="qrcode" class="w-44 h-44 rounded-xl block"></canvas>
+    </div>
 
-            <div class="w-full bg-bg rounded-3xl h-2.5 overflow-hidden relative">
-                <div id="master-progress" class="bg-brand h-full w-0 transition-all duration-300 relative">
-                    <div class="absolute inset-0 bg-white/20 animate-pulse"></div>
-                </div>
-            </div>
-            <div class="flex justify-between w-full text-slate-400 text-[11px] -mt-2">
-                <span id="master-percent">0%</span>
-                <span id="master-bytes">0 / 0</span>
-            </div>
+    <div class="w-full flex gap-2">
+      <button id="copy-link-btn" class="flex-1 flex items-center justify-center gap-2 bg-surface hover:bg-input text-slate-200 py-2.5 rounded-2xl text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
+        <i class="ph ph-link text-base" aria-hidden="true"></i>
+        Copy Link
+      </button>
+      <button id="copy-key-btn" class="flex-1 flex items-center justify-center gap-2 bg-surface hover:bg-input text-slate-200 py-2.5 rounded-2xl text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
+        <i class="ph ph-key text-base" aria-hidden="true"></i>
+        Copy Key
+      </button>
+    </div>
 
-            <div class="bg-bg rounded-3xl overflow-hidden">
-                <div id="transfer-queue" class="max-h-48 overflow-y-auto px-2 py-1"></div>
-            </div>
+    <!-- Files summary — collapsible -->
+    <details class="w-full group">
+      <summary class="flex items-center justify-between px-4 py-2.5 bg-surface/60 rounded-2xl cursor-pointer list-none text-sm text-slate-400 hover:text-slate-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50" aria-label="Toggle file list">
+        <span id="share-summary-label" class="text-xs font-medium">0 files · —</span>
+        <i class="ph ph-caret-down text-sm transition-transform group-open:rotate-180" aria-hidden="true"></i>
+      </summary>
+      <div id="share-file-list" class="mt-2 max-h-32 overflow-y-auto space-y-0.5" role="list" aria-label="Files to send"></div>
+    </details>
 
-            <div class="flex flex-wrap gap-2 justify-center">
-                <button id="pause-btn" class="flex items-center gap-2 bg-bg hover:bg-white/5 text-slate-200 px-4 py-2 rounded-3xl font-medium transition-colors text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
-                    <i class="ph ph-pause text-sm" id="pause-icon" aria-hidden="true"></i>
-                    <span id="pause-btn-text">Pause</span>
-                </button>
-                <button id="break-btn" class="flex items-center gap-2 bg-danger/10 hover:bg-danger/20 text-danger px-4 py-2 rounded-3xl font-bold transition-colors text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50">
-                    <i class="ph ph-lightning-slash text-sm" aria-hidden="true"></i>
-                    Break
-                </button>
-                <button id="cancel-transfer-btn" class="flex items-center gap-2 text-slate-400 hover:text-danger hover:bg-danger/10 px-4 py-2 rounded-3xl font-bold transition-colors text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50">
-                    <i class="ph ph-x text-sm" aria-hidden="true"></i>
-                    Cancel
-                </button>
-            </div>
+    <!-- Security badge + status -->
+    <div class="w-full flex items-center justify-between bg-surface/50 rounded-2xl px-3.5 py-3">
+      <div class="flex items-center gap-2.5">
+        <i class="ph ph-shield-check text-base text-brand" aria-hidden="true"></i>
+        <span class="text-xs text-slate-400" id="security-badge-text">XOR + URL hash</span>
+      </div>
+      <span class="flex items-center gap-1.5 text-brand text-[11px] font-semibold bg-brand/10 px-2.5 py-1.5 rounded-xl" role="status">
+        <i class="ph ph-spinner animate-spin-slow text-xs" aria-hidden="true"></i>
+        Waiting
+      </span>
+    </div>
+  </div>
 
-            <div class="flex items-center gap-4 text-[11px] text-slate-500 justify-center">
-                <span class="flex items-center gap-1" title="Round-trip time">
-                    <span class="w-1 h-1 rounded-full bg-brand animate-pulse" aria-hidden="true"></span>
-                    <span id="rtt-display">--</span>ms
-                </span>
-                <span class="flex items-center gap-1" title="Retry count">
-                    <span class="w-1 h-1 rounded-full bg-warning animate-pulse" aria-hidden="true"></span>
-                    <span id="retry-display">0</span>
-                </span>
-                <span class="flex items-center gap-1" title="Chunks transferred">
-                    <span class="w-1 h-1 rounded-full bg-success animate-pulse" aria-hidden="true"></span>
-                    <span id="chunk-display">0</span>
-                </span>
-            </div>
-        </div>
+  <!-- STATE: TRANSFER -->
+  <div id="state-transfer" class="hidden w-full max-w-xl flex flex-col bg-panel border border-white/[0.05] p-6 rounded-3xl gap-5" role="region" aria-label="Transfer progress">
+    <!-- Header -->
+    <div class="flex justify-between items-start">
+      <div>
+        <h2 id="transfer-status" class="text-xl font-bold text-white">Connecting</h2>
+        <p id="transfer-subtitle" class="text-slate-500 text-xs mt-0.5">Establishing channel</p>
+      </div>
+      <div class="text-right">
+        <p id="transfer-speed" class="text-sm font-semibold text-brand">—</p>
+        <p id="transfer-eta" class="text-slate-600 text-[11px]">Calculating</p>
+      </div>
+    </div>
 
-        <!-- STATE: DONE -->
-        <div id="state-done" class="hidden w-full max-w-sm flex flex-col items-center text-center bg-surface p-5 md:p-6 rounded-3xl gap-4">
-            <div class="bg-success/10 text-success p-3 rounded-3xl">
-                <i class="ph ph-check-circle text-3xl" aria-hidden="true"></i>
-            </div>
-            <div>
-                <h2 class="text-2xl font-black text-white">Complete</h2>
-                <p class="text-slate-400 text-sm mt-1">Transfer finished.</p>
-            </div>
+    <!-- Master progress -->
+    <div>
+      <div class="w-full bg-surface rounded-full h-1.5 overflow-hidden" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progress-bar-wrapper">
+        <div id="master-progress" class="bg-brand h-full w-0 transition-all duration-300 rounded-full"></div>
+      </div>
+      <div class="flex justify-between mt-1.5 text-[11px] text-slate-600">
+        <span id="master-percent">0%</span>
+        <span id="master-bytes">0 B / 0 B</span>
+      </div>
+    </div>
 
-            <div id="done-files-container" class="hidden w-full bg-bg rounded-3xl overflow-hidden text-left">
-                <div class="px-4 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">Files</div>
-                <div id="done-file-list" class="max-h-40 overflow-y-auto px-2 pb-2"></div>
-            </div>
+    <!-- Queue -->
+    <div class="bg-bg rounded-2xl overflow-hidden border border-white/[0.04]">
+      <div class="px-3.5 py-2 flex justify-between items-center border-b border-white/[0.04]">
+        <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Queue</span>
+        <span id="queue-status" class="text-[11px] text-slate-500" aria-live="polite">0 / 0</span>
+      </div>
+      <div id="transfer-queue" class="max-h-52 overflow-y-auto" role="list" aria-label="File transfer queue"></div>
+    </div>
 
-            <div class="flex gap-2 w-full">
-                <button onclick="App.reset()" class="flex-1 bg-brand hover:bg-brand/90 text-bg px-4 py-2.5 rounded-3xl font-bold transition-all shadow-lg shadow-brand/10 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
-                    Send More
-                </button>
-                <button id="show-summary-btn" class="bg-bg hover:bg-white/5 text-slate-300 px-4 py-2.5 rounded-3xl font-medium transition-colors text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
-                    <i class="ph ph-chart-bar" aria-hidden="true"></i>
-                </button>
-            </div>
-        </div>
+    <!-- Controls -->
+    <div class="flex gap-2">
+      <button id="pause-btn" class="flex items-center gap-1.5 bg-surface hover:bg-input text-slate-200 px-4 py-2.5 rounded-2xl text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50" aria-pressed="false">
+        <i class="ph ph-pause text-base" id="pause-icon" aria-hidden="true"></i>
+        <span id="pause-btn-text">Pause</span>
+      </button>
+      <button id="break-btn" class="flex items-center gap-1.5 bg-danger/8 hover:bg-danger/15 text-danger px-4 py-2.5 rounded-2xl text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50">
+        <i class="ph ph-lightning-slash text-base" aria-hidden="true"></i>
+        Break
+      </button>
+      <button id="cancel-transfer-btn" class="ml-auto flex items-center gap-1.5 text-slate-500 hover:text-danger hover:bg-danger/8 px-4 py-2.5 rounded-2xl text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50">
+        <i class="ph ph-x text-base" aria-hidden="true"></i>
+        Cancel
+      </button>
+    </div>
 
-        <!-- Summary Panel (hidden by default) -->
-        <div id="summary-panel" class="hidden w-full max-w-sm bg-surface p-5 rounded-3xl gap-4 mt-4 animate-slide-up">
-            <div class="flex items-center justify-between mb-3">
-                <h3 class="text-sm font-bold text-white">Summary</h3>
-                <button onclick="Summary.hide()" class="p-1.5 hover:bg-panel rounded-3xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50" aria-label="Hide summary">
-                    <i class="ph ph-x text-slate-400" aria-hidden="true"></i>
-                </button>
-            </div>
-            <div id="done-summary" class="space-y-2"></div>
-        </div>
+    <!-- Stats row — minimal -->
+    <div class="flex items-center gap-4 text-[11px] text-slate-600" role="status" aria-live="polite">
+      <span class="flex items-center gap-1.5">
+        <span class="w-1.5 h-1.5 rounded-full bg-brand/60 animate-pulse" aria-hidden="true"></span>
+        RTT <span id="rtt-display" class="text-slate-500 font-medium">—</span>ms
+      </span>
+      <span class="flex items-center gap-1.5">
+        <span class="w-1.5 h-1.5 rounded-full bg-warning/60 animate-pulse" aria-hidden="true"></span>
+        Retries <span id="retry-display" class="text-slate-500 font-medium">0</span>
+      </span>
+      <span class="flex items-center gap-1.5">
+        <span class="w-1.5 h-1.5 rounded-full bg-success/60 animate-pulse" aria-hidden="true"></span>
+        <span id="chunk-display" class="text-slate-500 font-medium">0</span> chunks
+      </span>
+    </div>
+  </div>
 
-        <!-- STATE: ERROR -->
-        <div id="state-error" class="hidden w-full max-w-sm flex flex-col items-center text-center bg-surface p-5 md:p-6 rounded-3xl gap-4">
-            <div class="bg-danger/10 text-danger p-3 rounded-3xl">
-                <i class="ph ph-warning-circle text-3xl" aria-hidden="true"></i>
-            </div>
-            <div>
-                <h2 class="text-2xl font-black text-white" id="error-title">Failed</h2>
-                <p class="text-slate-400 text-sm mt-1" id="error-message">Connection lost.</p>
-            </div>
+  <!-- STATE: DONE -->
+  <div id="state-done" class="hidden w-full max-w-md flex flex-col items-center bg-panel border border-white/[0.05] p-6 rounded-3xl gap-5" role="region" aria-label="Transfer complete">
+    <div class="bg-success/10 text-success p-3.5 rounded-2xl">
+      <i class="ph ph-check-circle text-3xl" aria-hidden="true"></i>
+    </div>
+    <div class="text-center">
+      <h2 class="text-2xl font-bold text-white">Complete</h2>
+      <p id="done-summary-inline" class="text-slate-500 text-sm mt-1">Transfer finished.</p>
+    </div>
 
-            <div class="w-full bg-bg rounded-3xl p-3.5 text-left">
-                <div class="flex items-center justify-between mb-2 cursor-pointer" onclick="ErrorDetails.toggle()" role="button" tabindex="0" aria-expanded="false" aria-label="Toggle error details">
-                    <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Details</span>
-                    <i class="ph ph-caret-down text-slate-500 text-xs transition-transform" id="error-caret" aria-hidden="true"></i>
-                </div>
-                <div id="error-diagnostics" class="hidden space-y-1 text-xs text-slate-400 font-mono"></div>
-            </div>
+    <!-- Files to download (receiver only) -->
+    <div id="done-files-container" class="hidden w-full bg-bg border border-white/[0.04] rounded-2xl overflow-hidden">
+      <div class="px-4 py-2.5 border-b border-white/[0.04]">
+        <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Downloaded Files</span>
+      </div>
+      <div id="done-file-list" class="max-h-48 overflow-y-auto" role="list" aria-label="Received files"></div>
+    </div>
 
-            <div class="flex gap-2 w-full">
-                <button onclick="App.reset()" class="flex-1 bg-brand hover:bg-brand/90 text-bg px-4 py-2.5 rounded-3xl font-bold transition-all text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
-                    Start Over
-                </button>
-                <button id="retry-btn" class="flex-1 bg-bg hover:bg-white/5 text-white px-4 py-2.5 rounded-3xl font-bold transition-colors text-sm hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
-                    Retry
-                </button>
-            </div>
-        </div>
+    <!-- Expandable stats -->
+    <details class="w-full group">
+      <summary class="flex items-center justify-between px-4 py-2.5 bg-surface/40 rounded-2xl cursor-pointer list-none text-xs text-slate-500 hover:text-slate-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
+        <span class="font-medium">Transfer stats</span>
+        <i class="ph ph-caret-down text-sm transition-transform group-open:rotate-180" aria-hidden="true"></i>
+      </summary>
+      <div id="done-summary" class="mt-2 bg-bg rounded-2xl border border-white/[0.04] overflow-hidden" role="table" aria-label="Transfer statistics"></div>
+    </details>
 
-    </main>
+    <div class="flex gap-2.5 w-full">
+      <button id="done-reset-btn" class="flex-1 bg-brand hover:bg-brand/85 text-bg px-5 py-2.5 rounded-2xl font-semibold text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60">
+        Send More
+      </button>
+    </div>
+  </div>
 
-    <script>
+  <!-- STATE: ERROR -->
+  <div id="state-error" class="hidden w-full max-w-md flex flex-col items-center bg-panel border border-white/[0.05] p-6 rounded-3xl gap-5" role="alert" aria-live="assertive">
+    <div class="bg-danger/10 text-danger p-3.5 rounded-2xl">
+      <i class="ph ph-warning-circle text-3xl" aria-hidden="true"></i>
+    </div>
+    <div class="text-center">
+      <h2 class="text-2xl font-bold text-white" id="error-title">Failed</h2>
+      <p class="text-slate-500 mt-1 text-sm" id="error-message">Connection lost.</p>
+    </div>
 
-        // ============================================================
-        // CONFIG
-        // ============================================================
-        const CONFIG = {
-            MAX_FILES: 50,
-            MAX_FILE_SIZE: 2 * 1024 * 1024 * 1024,
-            MAX_TOTAL_SIZE: 5 * 1024 * 1024 * 1024,
-            CHUNK_SIZE: 32 * 1024,
-            CONNECT_TIMEOUT: 30000,
-            MAX_RETRIES: 5,
-            FILENAME_MAX_LENGTH: 255,
-            BLOCKED_EXTENSIONS: ['.exe', '.dll', '.bat', '.cmd', '.sh', '.msi', '.app', '.dmg', '.pkg', '.deb', '.rpm'],
-        };
+    <!-- Collapsible diagnostics -->
+    <details class="w-full group">
+      <summary class="flex items-center justify-between px-4 py-2.5 bg-surface/40 rounded-2xl cursor-pointer list-none text-xs text-slate-500 hover:text-slate-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
+        <span class="font-medium">Diagnostics</span>
+        <i class="ph ph-caret-down text-sm transition-transform group-open:rotate-180" aria-hidden="true"></i>
+      </summary>
+      <div id="error-diagnostics" class="mt-2 bg-bg rounded-2xl border border-white/[0.04] p-3 space-y-1.5 text-xs font-mono" role="table" aria-label="Error diagnostics"></div>
+    </details>
 
-        // ============================================================
-        // DOM UTILITIES
-        // ============================================================
-        const DOM = {
-            get: (id) => document.getElementById(id),
-            create: (tag, classes, attrs, children) => {
-                const el = document.createElement(tag);
-                if (classes) el.className = classes;
-                if (attrs) {
-                    Object.entries(attrs).forEach(([k, v]) => {
-                        if (k === 'text') el.textContent = v;
-                        else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
-                        else if (k === 'style' && typeof v === 'object') Object.assign(el.style, v);
-                        else el.setAttribute(k, v);
-                    });
-                }
-                if (children) children.forEach(c => { if (c) el.appendChild(c); });
-                return el;
-            },
-            clear: (el) => { while (el.firstChild) el.removeChild(el.firstChild); },
-            show: (el) => el.classList.remove('hidden'),
-            hide: (el) => el.classList.add('hidden'),
-        };
+    <div class="flex gap-2.5 w-full">
+      <button id="error-reset-btn" class="flex-1 bg-brand hover:bg-brand/85 text-bg px-5 py-2.5 rounded-2xl font-semibold text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60">
+        Start Over
+      </button>
+      <button id="retry-btn" class="hidden flex-1 bg-surface hover:bg-input text-white px-5 py-2.5 rounded-2xl font-semibold text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
+        Retry
+      </button>
+    </div>
+  </div>
 
-        function icon(name, classes) {
-            const i = document.createElement('i');
-            i.className = 'ph ph-' + name + ' ' + (classes || '');
-            i.setAttribute('aria-hidden', 'true');
-            return i;
+</main>
+
+<script>
+// ============================================================
+// CONFIG
+// ============================================================
+const CONFIG = {
+  MAX_FILES: 50,
+  MAX_FILE_SIZE: 2 * 1024 * 1024 * 1024,
+  MAX_TOTAL_SIZE: 5 * 1024 * 1024 * 1024,
+  get CHUNK_SIZE() { return parseInt(document.getElementById('chunk-select')?.value || '32768'); },
+  CONNECT_TIMEOUT: 30000,
+  MAX_RETRIES: 5,
+  FILENAME_MAX_LENGTH: 255,
+  BLOCKED_EXTENSIONS: ['.exe','.dll','.bat','.cmd','.sh','.msi','.app','.dmg','.pkg','.deb','.rpm','.vbs','.ps1','.scr','.com'],
+};
+
+// ============================================================
+// DOM
+// ============================================================
+const DOM = {
+  get: (id) => document.getElementById(id),
+  create: (tag, classes, attrs, children) => {
+    const el = document.createElement(tag);
+    if (classes) el.className = classes;
+    // Allow passing children array as third argument
+    if (Array.isArray(attrs)) { children = attrs; attrs = null; }
+    if (attrs) {
+      for (const [k, v] of Object.entries(attrs)) {
+        if (k === 'text') el.textContent = v;
+        else if (k === 'style' && typeof v === 'object') Object.assign(el.style, v);
+        else el.setAttribute(k, v);
+      }
+    }
+    if (children) children.forEach(c => { if (c) el.appendChild(c); });
+    return el;
+  },
+  clear: (el) => { while (el.firstChild) el.removeChild(el.firstChild); },
+  show: (el) => el.classList.remove('hidden'),
+  hide: (el) => el.classList.add('hidden'),
+};
+
+function mkIcon(name, cls) {
+  const i = document.createElement('i');
+  i.className = `ph ph-${name}${cls ? ' ' + cls : ''}`;
+  i.setAttribute('aria-hidden', 'true');
+  return i;
+}
+
+// ============================================================
+// FORMATTING
+// ============================================================
+function formatBytes(bytes) {
+  if (bytes === 0) return '0 B';
+  const k = 1024, sizes = ['B','KB','MB','GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / k**i).toFixed(2)) + ' ' + sizes[i];
+}
+
+function formatDuration(ms) {
+  if (ms < 1000) return ms + 'ms';
+  if (ms < 60000) return Math.floor(ms/1000) + 's';
+  return Math.floor(ms/60000) + 'm ' + Math.floor((ms%60000)/1000) + 's';
+}
+
+function fileIconName(fname) {
+  const ext = (fname.split('.').pop()||'').toLowerCase();
+  const map = {
+    image: ['jpg','jpeg','png','gif','webp','svg','bmp','ico','avif'],
+    video: ['mp4','webm','mov','avi','mkv','flv'],
+    audio: ['mp3','wav','ogg','flac','aac','m4a'],
+    document: ['pdf','doc','docx','txt','rtf','odt','xls','xlsx','ppt','pptx','csv'],
+    archive: ['zip','rar','7z','tar','gz','bz2'],
+    code: ['js','html','css','py','java','cpp','c','go','rs','ts','tsx','jsx','php','rb','json','yaml','xml'],
+  };
+  for (const [type, exts] of Object.entries(map)) {
+    if (exts.includes(ext)) return type;
+  }
+  return 'file';
+}
+
+function phosphorIcon(type) {
+  return {image:'image',video:'video',audio:'headphones',document:'file-text',archive:'archive',code:'code',file:'file'}[type] || 'file';
+}
+
+// ============================================================
+// CRYPTO
+// ============================================================
+const Crypto = {
+  generateKey: () => {
+    const arr = new Uint8Array(32);
+    crypto.getRandomValues(arr);
+    return btoa(String.fromCharCode(...arr)).replace(/[+/=]/g,'').slice(0, 32);
+  },
+  xor: (buffer, key) => {
+    if (!key) return buffer;
+    const view = new Uint8Array(buffer);
+    const kb = new TextEncoder().encode(key);
+    const out = new Uint8Array(view.length);
+    for (let i = 0; i < view.length; i++) out[i] = view[i] ^ kb[i % kb.length];
+    return out.buffer;
+  },
+  checksum: (buffer) => {
+    const v = new Uint8Array(buffer);
+    let h = 0;
+    for (let i = 0; i < v.length; i++) h = ((h << 5) - h + v[i]) | 0;
+    return (h >>> 0).toString(16).padStart(8, '0');
+  }
+};
+
+// ============================================================
+// SAFETY
+// ============================================================
+const Safety = {
+  sanitizeFilename: (name) => {
+    if (!name || typeof name !== 'string') return 'unnamed_file';
+    name = name.replace(/\.\./g, '_');
+    if (/^[/\\~]/.test(name)) name = '_' + name.slice(1);
+    const allowed = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-() []';
+    let result = '';
+    for (const ch of name) result += allowed.includes(ch) ? ch : '_';
+    if (result.length > CONFIG.FILENAME_MAX_LENGTH) {
+      const dot = result.lastIndexOf('.');
+      result = dot > 0
+        ? result.slice(0, CONFIG.FILENAME_MAX_LENGTH - (result.length - dot)) + result.slice(dot)
+        : result.slice(0, CONFIG.FILENAME_MAX_LENGTH);
+    }
+    if (!result.trim() || result === '.' || result === '..') result = 'unnamed_file';
+    return result;
+  },
+  validateFile: (file) => {
+    const errors = [];
+    if (!file || !(file instanceof File)) { errors.push('Invalid file object'); return errors; }
+    if (file.size > CONFIG.MAX_FILE_SIZE) errors.push(`"${file.name}" too large (${formatBytes(file.size)})`);
+    if (file.size === 0) errors.push(`"${file.name}" is empty`);
+    const ext = '.' + (file.name.split('.').pop() || '').toLowerCase();
+    if (CONFIG.BLOCKED_EXTENSIONS.includes(ext)) errors.push(`Blocked type: ${ext}`);
+    return errors;
+  },
+  validateFiles: (files) => {
+    const errors = [];
+    if (!files || files.length === 0) { errors.push('No files selected'); return errors; }
+    if (files.length > CONFIG.MAX_FILES) errors.push(`Too many files (${files.length} > ${CONFIG.MAX_FILES})`);
+    let total = 0;
+    for (const f of files) { total += f.size; errors.push(...Safety.validateFile(f)); }
+    if (total > CONFIG.MAX_TOTAL_SIZE) errors.push('Total size exceeds 5 GB limit');
+    return errors;
+  },
+  sanitizePeerId: (id) => {
+    if (!id || typeof id !== 'string') return null;
+    const clean = id.replace(/[^a-zA-Z0-9_-]/g, '');
+    return clean.length >= 10 && clean.length <= 64 ? clean : null;
+  }
+};
+
+// ============================================================
+// TOAST
+// ============================================================
+const Toast = {
+  show(message, type = 'info') {
+    const container = DOM.get('toast-container');
+    const pal = {info:'text-slate-200',success:'text-success',error:'text-danger',warning:'text-warning'};
+    const ico = {info:'info',success:'check-circle',error:'warning-circle',warning:'warning'};
+    const toast = DOM.create('div','pointer-events-auto px-4 py-2.5 rounded-2xl font-medium shadow-2xl shadow-black/60 text-sm animate-fade-in flex items-center gap-2 bg-panel border border-white/[0.07] ' + (pal[type]||pal.info));
+    toast.setAttribute('role','alert');
+    toast.appendChild(mkIcon(ico[type]||'info','text-base'));
+    toast.appendChild(DOM.create('span','',{text: message}));
+    container.appendChild(toast);
+    setTimeout(() => {
+      toast.classList.replace('animate-fade-in','animate-fade-out');
+      setTimeout(() => toast.parentNode?.removeChild(toast), 200);
+    }, 3500);
+  }
+};
+
+// ============================================================
+// STATE
+// ============================================================
+const AppState = {
+  current: null,
+  els: null,
+  init() {
+    this.els = {
+      upload: DOM.get('state-upload'),
+      share: DOM.get('state-share'),
+      transfer: DOM.get('state-transfer'),
+      done: DOM.get('state-done'),
+      error: DOM.get('state-error'),
+    };
+  },
+  go(name) {
+    for (const el of Object.values(this.els)) {
+      if (!el.classList.contains('hidden')) {
+        el.classList.add('animate-fade-out');
+        setTimeout(() => { el.classList.add('hidden'); el.classList.remove('animate-fade-out'); }, 180);
+      }
+    }
+    setTimeout(() => {
+      const t = this.els[name];
+      t.classList.remove('hidden','animate-fade-out');
+      t.classList.add('animate-scale-in');
+      setTimeout(() => t.classList.remove('animate-scale-in'), 300);
+      this.current = name;
+    }, 220);
+  }
+};
+
+// ============================================================
+// SETTINGS
+// ============================================================
+const Settings = {
+  autoDownload: false,
+  init() {
+    const popover = DOM.get('settings-popover');
+    const toggle = DOM.get('settings-toggle');
+    const close = DOM.get('settings-close');
+    const adToggle = DOM.get('auto-download-toggle');
+    const adKnob = DOM.get('auto-download-knob');
+
+    const openPop = () => { DOM.show(popover); toggle.setAttribute('aria-expanded','true'); };
+    const closePop = () => { DOM.hide(popover); toggle.setAttribute('aria-expanded','false'); };
+
+    toggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      popover.classList.contains('hidden') ? openPop() : closePop();
+    });
+    close.addEventListener('click', closePop);
+    document.addEventListener('click', (e) => {
+      if (!popover.classList.contains('hidden') && !popover.contains(e.target) && !toggle.contains(e.target)) closePop();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !popover.classList.contains('hidden')) closePop();
+    });
+
+    adToggle.addEventListener('click', () => {
+      Settings.autoDownload = !Settings.autoDownload;
+      adToggle.setAttribute('aria-checked', String(Settings.autoDownload));
+      if (Settings.autoDownload) {
+        adToggle.classList.add('bg-brand/20', 'border-brand/40');
+        adToggle.classList.remove('bg-surface');
+        adKnob.classList.add('translate-x-5','bg-brand');
+        adKnob.classList.remove('bg-slate-500');
+      } else {
+        adToggle.classList.remove('bg-brand/20','border-brand/40');
+        adToggle.classList.add('bg-surface');
+        adKnob.classList.remove('translate-x-5','bg-brand');
+        adKnob.classList.add('bg-slate-500');
+      }
+    });
+  }
+};
+
+// ============================================================
+// FILE STORE
+// ============================================================
+const FileStore = {
+  files: [],
+  add(fileList) {
+    const merged = [...this.files, ...Array.from(fileList)];
+    const errs = Safety.validateFiles(merged);
+    if (errs.length) { errs.slice(0,3).forEach(e => Toast.show(e,'error')); return false; }
+    this.files = merged;
+    this.render();
+    return true;
+  },
+  remove(idx) { this.files.splice(idx,1); this.render(); },
+  clear() { this.files = []; this.render(); },
+  totalSize() { return this.files.reduce((s,f) => s+f.size, 0); },
+  render() {
+    const list = DOM.get('file-list');
+    const container = DOM.get('file-list-container');
+    DOM.clear(list);
+    if (!this.files.length) { DOM.hide(container); return; }
+    DOM.show(container);
+    DOM.get('file-count-label').textContent = `${this.files.length} file${this.files.length !== 1 ? 's' : ''}`;
+    DOM.get('total-size-label').textContent = formatBytes(this.totalSize());
+    this.files.forEach((file, idx) => {
+      const iconEl = DOM.create('div','bg-surface/60 p-2 rounded-xl text-slate-500 shrink-0');
+      iconEl.appendChild(mkIcon(phosphorIcon(fileIconName(file.name)),'text-base'));
+      const removeBtn = DOM.create('button','opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity text-slate-600 hover:text-danger p-1.5 rounded-xl hover:bg-danger/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50',{'aria-label': `Remove ${file.name}`});
+      removeBtn.appendChild(mkIcon('trash','text-sm'));
+      removeBtn.addEventListener('click', () => this.remove(idx));
+      const row = DOM.create('div','flex items-center gap-3 px-3.5 py-2.5 hover:bg-white/[0.02] transition-colors group',{role:'listitem'},[
+        iconEl,
+        DOM.create('div','flex-1 min-w-0 text-left',[],[
+          DOM.create('p','text-sm font-medium text-slate-200 truncate',{text: file.name}),
+          DOM.create('p','text-[11px] text-slate-600',{text: formatBytes(file.size)}),
+        ]),
+        removeBtn,
+      ]);
+      list.appendChild(row);
+    });
+  }
+};
+
+// ============================================================
+// TRANSFER MANAGER
+// ============================================================
+const Transfer = {
+  queue: [],
+  currentIndex: 0,
+  isPaused: false,
+  isCancelled: false,
+  stats: { startTime:0, lastUpdate:0, bytesSinceUpdate:0, totalBytes:0, sentBytes:0, retries:0, chunks:0, speedInterval:null },
+
+  reset() {
+    this.queue = [];
+    this.currentIndex = 0;
+    this.isPaused = false;
+    this.isCancelled = false;
+    if (this.stats.speedInterval) clearInterval(this.stats.speedInterval);
+    this.stats = { startTime:0, lastUpdate:0, bytesSinceUpdate:0, totalBytes:0, sentBytes:0, retries:0, chunks:0, speedInterval:null };
+  },
+
+  initQueue(files) {
+    this.reset();
+    this.queue = files.map((file, idx) => ({
+      id: idx, file, name: Safety.sanitizeFilename(file.name), size: file.size,
+      type: file.type || 'application/octet-stream',
+      sent: 0, status: 'pending', retries: 0, buffers: [], expectedSeq: 0, downloadUrl: null,
+    }));
+    this.stats.totalBytes = files.reduce((s,f) => s+f.size, 0);
+  },
+
+  updateMasterProgress() {
+    const sent = this.queue.reduce((s,q) => s+q.sent, 0);
+    this.stats.sentBytes = sent;
+    const pct = this.stats.totalBytes > 0 ? Math.round(sent/this.stats.totalBytes*100) : 0;
+    const bar = DOM.get('master-progress');
+    bar.style.width = pct + '%';
+    const wrapper = DOM.get('progress-bar-wrapper');
+    wrapper.setAttribute('aria-valuenow', pct);
+    DOM.get('master-percent').textContent = pct + '%';
+    DOM.get('master-bytes').textContent = formatBytes(sent) + ' / ' + formatBytes(this.stats.totalBytes);
+    const done = this.queue.filter(q => q.status === 'complete').length;
+    DOM.get('queue-status').textContent = `${done} / ${this.queue.length}`;
+
+    const now = Date.now();
+    if (now - this.stats.lastUpdate > 800) {
+      const elapsed = (now - this.stats.lastUpdate) / 1000;
+      const speedBps = this.stats.bytesSinceUpdate / elapsed;
+      if (speedBps > 0) {
+        DOM.get('transfer-speed').textContent = (speedBps / 1048576).toFixed(1) + ' MB/s';
+        const remaining = this.stats.totalBytes - sent;
+        if (remaining > 0) {
+          DOM.get('transfer-eta').textContent = formatDuration(Math.round(remaining / speedBps) * 1000) + ' left';
+        } else {
+          DOM.get('transfer-eta').textContent = 'Finishing';
         }
+      }
+      this.stats.lastUpdate = now;
+      this.stats.bytesSinceUpdate = 0;
+    }
+  },
 
-        // ============================================================
-        // FORMATTING
-        // ============================================================
-        function formatBytes(bytes) {
-            if (bytes === 0) return '0 B';
-            const k = 1024;
-            const sizes = ['B', 'KB', 'MB', 'GB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  renderQueue() {
+    const container = DOM.get('transfer-queue');
+    DOM.clear(container);
+    this.queue.forEach((item, idx) => {
+      const iconEl = DOM.create('div','bg-surface/60 p-1.5 rounded-xl text-slate-500 shrink-0');
+      iconEl.appendChild(mkIcon(phosphorIcon(fileIconName(item.name)),'text-sm'));
+      const isActive = idx === this.currentIndex && item.status === 'active';
+      const statusCls = {pending:'text-slate-600',active:'text-brand',paused:'text-warning',complete:'text-success',error:'text-danger'}[item.status] || 'text-slate-600';
+      const pct = item.size > 0 ? Math.round(item.sent/item.size*100) : 0;
+      const row = DOM.create('div', `flex items-center gap-3 px-3.5 py-3 transition-colors ${isActive?'bg-white/[0.025]':''}`, {role:'listitem'}, [
+        iconEl,
+        DOM.create('div','flex-1 min-w-0',[],[
+          DOM.create('div','flex justify-between items-center mb-1.5',[],[
+            DOM.create('p','text-sm font-medium text-slate-300 truncate',{text: item.name}),
+            DOM.create('span',`text-[10px] font-semibold ${statusCls}`,{text: item.status.toUpperCase()}),
+          ]),
+          DOM.create('div','w-full bg-surface/80 rounded-full h-1 overflow-hidden',[],[
+            DOM.create('div','bg-brand h-full rounded-full transition-all duration-300',{style:{width:pct+'%'}}),
+          ]),
+          DOM.create('div','flex justify-between mt-1',[],[
+            DOM.create('span','text-[10px] text-slate-600',{text: formatBytes(item.sent)}),
+            DOM.create('span','text-[10px] text-slate-600',{text: pct+'%'}),
+          ]),
+        ]),
+      ]);
+      container.appendChild(row);
+    });
+  },
+};
+
+// ============================================================
+// STATUS
+// ============================================================
+function updateStatus(text, color) {
+  const dot = DOM.get('status-dot');
+  const ping = DOM.get('status-ping');
+  const label = DOM.get('status-text');
+  const bg = {success:'bg-emerald-500',danger:'bg-red-500',warning:'bg-amber-500',info:'bg-blue-500'}[color] || 'bg-slate-500';
+  dot.className = `relative inline-flex rounded-full h-2 w-2 ${bg}`;
+  ping.className = `animate-ping absolute inline-flex h-full w-full rounded-full ${bg} opacity-50`;
+  label.textContent = text;
+}
+
+function showError(title, message, details = {}) {
+  DOM.get('error-title').textContent = title;
+  DOM.get('error-message').textContent = message;
+  const diag = DOM.get('error-diagnostics');
+  DOM.clear(diag);
+  const items = [
+    ['Code', details.type || 'UNKNOWN'],
+    ['Time', new Date().toLocaleTimeString()],
+    ['State', AppState.current || 'unknown'],
+    ['Mode', PeerNet.isReceiver ? 'Receiver' : 'Sender'],
+    ['Security', PeerNet.securityMode],
+  ];
+  items.forEach(([k,v]) => {
+    diag.appendChild(DOM.create('div','flex justify-between',{role:'row'},[
+      DOM.create('span','text-slate-500',{text: k+':'}),
+      DOM.create('span','text-slate-300',{text: v}),
+    ]));
+  });
+  const retryBtn = DOM.get('retry-btn');
+  if (details.canRetry && PeerNet.isReceiver) {
+    DOM.show(retryBtn);
+    const h = () => { AppState.go('transfer'); PeerNet.startReceiver(); };
+    retryBtn.replaceWith(retryBtn.cloneNode(true)); // clear old listeners
+    const newBtn = DOM.get('retry-btn');
+    newBtn.addEventListener('click', h);
+    DOM.show(newBtn);
+  } else {
+    DOM.hide(retryBtn);
+  }
+  AppState.go('error');
+}
+
+// ============================================================
+// PEER NETWORK
+// ============================================================
+const PeerNet = {
+  peer: null,
+  conn: null,
+  isReceiver: false,
+  connectToId: null,
+  encryptionKey: null,
+  get throttleMs() { return parseInt(DOM.get('throttle-select')?.value || '50'); },
+  get securityMode() { return DOM.get('security-select')?.value || 'encrypt'; },
+
+  init() {
+    const params = new URLSearchParams(window.location.search);
+    this.connectToId = Safety.sanitizePeerId(params.get('peer'));
+    this.encryptionKey = window.location.hash.slice(1) || null;
+    this.isReceiver = !!this.connectToId;
+    this.peer = new Peer({ debug: 1 });
+    this.peer.on('open', (id) => {
+      updateStatus('Ready', 'success');
+      if (this.isReceiver) this.startReceiver();
+      else { AppState.go('upload'); this.setupSender(); }
+    });
+    this.peer.on('error', (err) => {
+      updateStatus('Error', 'danger');
+      const msgs = {
+        'peer-unavailable': ['Unavailable','Sender is offline or link expired.', false],
+        'network': ['Network','Cannot reach signaling server.', true],
+        'server-error': ['Server','Signaling server error.', true],
+        'disconnected': ['Disconnected','Connection closed unexpectedly.', true],
+        'unavailable-id': ['ID Conflict','Peer ID already in use.', false],
+      };
+      const [title, msg, canRetry] = msgs[err.type] || ['Error', err.message || 'Unexpected error.', false];
+      showError(title, msg, { type: err.type, canRetry });
+    });
+    this.peer.on('disconnected', () => updateStatus('Offline', 'danger'));
+  },
+
+  setupSender() {
+    const dz = DOM.get('dropzone');
+    const fi = DOM.get('file-input');
+    const over = (e) => { e.preventDefault(); e.stopPropagation(); };
+    dz.addEventListener('dragenter', over);
+    dz.addEventListener('dragover', (e) => { over(e); dz.classList.add('border-brand/50','bg-brand/5'); });
+    dz.addEventListener('dragleave', (e) => { over(e); dz.classList.remove('border-brand/50','bg-brand/5'); });
+    dz.addEventListener('drop', (e) => {
+      over(e); dz.classList.remove('border-brand/50','bg-brand/5');
+      if (e.dataTransfer.files.length) FileStore.add(e.dataTransfer.files);
+    });
+    fi.addEventListener('change', (e) => { if (e.target.files.length) FileStore.add(e.target.files); });
+
+    DOM.get('clear-files-btn').addEventListener('click', () => FileStore.clear());
+    DOM.get('confirm-files-btn').addEventListener('click', () => {
+      if (!FileStore.files.length) { Toast.show('Select at least one file', 'warning'); return; }
+      this.prepareShare();
+    });
+
+    this.peer.on('connection', (conn) => {
+      if (this.conn) { conn.close(); return; }
+      this.conn = conn;
+      this.handleConnection(conn, false);
+    });
+  },
+
+  prepareShare() {
+    if (!this.encryptionKey && this.securityMode !== 'none') {
+      this.encryptionKey = Crypto.generateKey();
+    }
+    const base = window.location.origin + window.location.pathname;
+    const shareUrl = `${base}?peer=${this.peer.id}#${this.encryptionKey || ''}`;
+
+    new QRious({
+      element: DOM.get('qrcode'),
+      value: shareUrl, size: 240, level: 'H',
+      foreground: '#0e0e0f', background: '#ffffff'
+    });
+
+    // Update summary label
+    const label = DOM.get('share-summary-label');
+    label.textContent = `${FileStore.files.length} file${FileStore.files.length !== 1 ? 's' : ''} · ${formatBytes(FileStore.totalSize())}`;
+
+    // Populate file list inside details
+    const manifest = DOM.get('share-file-list');
+    DOM.clear(manifest);
+    FileStore.files.forEach(file => {
+      const row = DOM.create('div','flex items-center gap-3 px-3.5 py-2 hover:bg-white/[0.02] rounded-xl transition-colors',{role:'listitem'},[
+        DOM.create('div','shrink-0 text-slate-500',[],[mkIcon(phosphorIcon(fileIconName(file.name)),'text-sm')]),
+        DOM.create('div','flex-1 min-w-0',[],[
+          DOM.create('p','text-xs font-medium text-slate-300 truncate',{text: Safety.sanitizeFilename(file.name)}),
+          DOM.create('p','text-[10px] text-slate-600',{text: formatBytes(file.size)}),
+        ]),
+      ]);
+      manifest.appendChild(row);
+    });
+
+    DOM.get('security-badge-text').textContent = {
+      none:'Standard WebRTC',encrypt:'XOR + URL hash',paranoid:'Paranoid + checksums'
+    }[this.securityMode] || 'XOR + URL hash';
+
+    DOM.get('copy-link-btn').addEventListener('click', () => {
+      navigator.clipboard.writeText(shareUrl).then(() => Toast.show('Link copied','success'));
+    });
+    DOM.get('copy-key-btn').addEventListener('click', () => {
+      if (this.encryptionKey) navigator.clipboard.writeText(this.encryptionKey).then(() => Toast.show('Key copied','success'));
+      else Toast.show('No key in standard mode','info');
+    });
+
+    AppState.go('share');
+  },
+
+  startReceiver() {
+    AppState.go('transfer');
+    DOM.get('transfer-status').textContent = 'Connecting';
+    DOM.get('transfer-subtitle').textContent = 'Target: ' + this.connectToId.slice(0,12) + '…';
+    const conn = this.peer.connect(this.connectToId, { reliable: true, metadata: { version: '2.1' } });
+    this.conn = conn;
+    this.handleConnection(conn, true);
+  },
+
+  handleConnection(conn, isReceiver) {
+    let connectTimeout = setTimeout(() => {
+      if (!conn.open) showError('Timeout', 'Could not connect within 30s. Sender may be behind a restrictive NAT.', { canRetry: true });
+    }, CONFIG.CONNECT_TIMEOUT);
+
+    conn.on('open', () => {
+      clearTimeout(connectTimeout);
+      updateStatus('Connected', 'success');
+      if (isReceiver) {
+        DOM.get('transfer-status').textContent = 'Awaiting files';
+        DOM.get('transfer-subtitle').textContent = 'Secure channel open';
+      } else {
+        Transfer.initQueue(FileStore.files);
+        AppState.go('transfer');
+        DOM.get('transfer-status').textContent = 'Sending';
+        DOM.get('transfer-subtitle').textContent = Transfer.queue.length + ' files';
+        Transfer.stats.startTime = Transfer.stats.lastUpdate = Date.now();
+        conn.send({ type:'manifest', files: Transfer.queue.map(q => ({ id:q.id, name:q.name, size:q.size, filetype:q.type })), security: this.securityMode, version:'2.1' });
+        Transfer.renderQueue();
+        this.sendNextFile(conn);
+      }
+    });
+
+    let currentFile = null;
+
+    conn.on('data', (data) => {
+      if (!data || typeof data !== 'object') return;
+
+      if (isReceiver) {
+        if (data.type === 'manifest') {
+          if (!Array.isArray(data.files)) { showError('Bad manifest','Corrupted data from sender.'); return; }
+          Transfer.queue = data.files.map(f => ({
+            id:f.id, name:Safety.sanitizeFilename(f.name), size:f.size,
+            type:f.filetype || 'application/octet-stream',
+            sent:0, status:'pending', buffers:[], expectedSeq:0, downloadUrl:null,
+          }));
+          Transfer.stats.totalBytes = Transfer.queue.reduce((s,q) => s+q.size, 0);
+          Transfer.stats.startTime = Transfer.stats.lastUpdate = Date.now();
+          DOM.get('transfer-status').textContent = 'Receiving';
+          Transfer.renderQueue();
+          Transfer.updateMasterProgress();
+          conn.send({ type:'ack-manifest' });
         }
-
-        function formatDuration(ms) {
-            if (ms < 1000) return ms + 'ms';
-            if (ms < 60000) return Math.floor(ms / 1000) + 's';
-            const m = Math.floor(ms / 60000);
-            const s = Math.floor((ms % 60000) / 1000);
-            return m + 'm ' + s + 's';
+        else if (data.type === 'file-header') {
+          currentFile = Transfer.queue.find(q => q.id === data.id);
+          if (!currentFile) { conn.send({ type:'error', message:'Unknown file ID' }); return; }
+          currentFile.status = 'active';
+          currentFile.buffers = [];
+          currentFile.sent = 0;
+          currentFile.expectedSeq = 0;
+          Transfer.currentIndex = Transfer.queue.indexOf(currentFile);
+          DOM.get('transfer-status').textContent = 'Receiving: ' + currentFile.name;
+          Transfer.renderQueue();
+          conn.send({ type:'ack-header', id:data.id });
         }
-
-        function getFileIconName(filename) {
-            const ext = (filename.split('.').pop() || '').toLowerCase();
-            const map = {
-                image: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'],
-                video: ['mp4', 'webm', 'mov', 'avi', 'mkv', 'flv'],
-                audio: ['mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a', 'wma'],
-                document: ['pdf', 'doc', 'docx', 'txt', 'rtf', 'odt', 'xls', 'xlsx', 'ppt', 'pptx'],
-                archive: ['zip', 'rar', '7z', 'tar', 'gz', 'bz2'],
-                code: ['js', 'html', 'css', 'py', 'java', 'cpp', 'c', 'go', 'rs', 'ts', 'tsx', 'jsx', 'php', 'rb'],
-            };
-            for (const [type, exts] of Object.entries(map)) {
-                if (exts.includes(ext)) return type;
+        else if (data.type === 'chunk') {
+          if (!currentFile || data.id !== currentFile.id) return;
+          currentFile.expectedSeq = (data.seq || 0) + 1;
+          let chunkData = data.data;
+          if (PeerNet.encryptionKey && data.encrypted) {
+            try { chunkData = Crypto.xor(chunkData, PeerNet.encryptionKey); }
+            catch (e) { conn.send({ type:'chunk-error', id:currentFile.id, seq:data.seq, message:'Decrypt failed' }); return; }
+          }
+          if (data.checksum && PeerNet.securityMode === 'paranoid') {
+            if (Crypto.checksum(chunkData) !== data.checksum) {
+              conn.send({ type:'chunk-error', id:currentFile.id, seq:data.seq, message:'Checksum mismatch' });
+              Transfer.stats.retries++;
+              DOM.get('retry-display').textContent = Transfer.stats.retries;
+              return;
             }
-            return 'file';
+          }
+          currentFile.buffers.push(chunkData);
+          currentFile.sent += chunkData.byteLength;
+          Transfer.stats.bytesSinceUpdate += chunkData.byteLength;
+          Transfer.stats.chunks++;
+          DOM.get('chunk-display').textContent = Transfer.stats.chunks;
+          Transfer.updateMasterProgress();
+          Transfer.renderQueue();
+          setTimeout(() => conn.send({ type:'ack-chunk', id:currentFile.id, seq:data.seq }), Math.max(0, PeerNet.throttleMs / 2));
         }
-
-        function getPhosphorIcon(type) {
-            const icons = { image: 'image', video: 'video', audio: 'headphones', document: 'file-text', archive: 'archive', code: 'code', file: 'file' };
-            return icons[type] || 'file';
+        else if (data.type === 'file-done') {
+          if (!currentFile) return;
+          currentFile.status = 'complete';
+          Transfer.updateMasterProgress();
+          Transfer.renderQueue();
+          conn.send({ type:'ack-file-done', id:currentFile.id });
+          if (Transfer.queue.every(q => q.status === 'complete')) {
+            DOM.get('transfer-status').textContent = 'Done';
+            setTimeout(() => PeerNet.showDone(), 400);
+          }
         }
-
-        // ============================================================
-        // CRYPTO
-        // ============================================================
-        const Crypto = {
-            generateKey: () => {
-                const arr = new Uint8Array(32);
-                crypto.getRandomValues(arr);
-                return btoa(String.fromCharCode(...arr)).replace(/[+/=]/g, '').slice(0, 32);
-            },
-            encrypt: (buffer, key) => {
-                if (!key) return buffer;
-                const view = new Uint8Array(buffer);
-                const keyBytes = new TextEncoder().encode(key);
-                const out = new Uint8Array(view.length);
-                for (let i = 0; i < view.length; i++) {
-                    out[i] = view[i] ^ keyBytes[i % keyBytes.length];
-                }
-                return out.buffer;
-            },
-            decrypt: (buffer, key) => Crypto.encrypt(buffer, key),
-            checksum: (buffer) => {
-                const view = new Uint8Array(buffer);
-                let hash = 0;
-                for (let i = 0; i < view.length; i++) {
-                    hash = ((hash << 5) - hash + view[i]) | 0;
-                }
-                return (hash >>> 0).toString(16).padStart(8, '0');
-            }
-        };
-
-        // ============================================================
-        // SAFETY
-        // ============================================================
-        const Safety = {
-            sanitizeFilename: (name) => {
-                if (!name || typeof name !== 'string') return 'unnamed_file';
-                if (name.includes('..')) name = name.split('..').join('_');
-                if (name[0] === '/' || name[0] === '\\' || name[0] === '~') name = '_' + name.slice(1);
-                const allowed = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-() []';
-                let result = '';
-                for (let i = 0; i < name.length; i++) {
-                    result += allowed.includes(name[i]) ? name[i] : '_';
-                }
-                if (result.length > CONFIG.FILENAME_MAX_LENGTH) {
-                    const extIdx = result.lastIndexOf('.');
-                    if (extIdx > 0) {
-                        result = result.slice(0, CONFIG.FILENAME_MAX_LENGTH - (result.length - extIdx)) + result.slice(extIdx);
-                    } else {
-                        result = result.slice(0, CONFIG.FILENAME_MAX_LENGTH);
-                    }
-                }
-                if (!result.trim() || result === '.' || result === '..') result = 'unnamed_file';
-                return result;
-            },
-            validateFile: (file) => {
-                const errors = [];
-                if (!file || !(file instanceof File)) { errors.push('Invalid file'); return errors; }
-                if (file.size > CONFIG.MAX_FILE_SIZE) errors.push('File too large (' + formatBytes(file.size) + ')');
-                const ext = '.' + (file.name.split('.').pop() || '').toLowerCase();
-                if (CONFIG.BLOCKED_EXTENSIONS.includes(ext)) errors.push('Blocked type: ' + ext);
-                return errors;
-            },
-            validateFiles: (files) => {
-                const errors = [];
-                if (!files || files.length === 0) { errors.push('No files selected'); return errors; }
-                if (files.length > CONFIG.MAX_FILES) errors.push('Too many files (' + files.length + ')');
-                let totalSize = 0;
-                for (const file of files) {
-                    totalSize += file.size;
-                    errors.push(...Safety.validateFile(file));
-                }
-                if (totalSize > CONFIG.MAX_TOTAL_SIZE) errors.push('Total size exceeds limit');
-                return errors;
-            },
-            sanitizePeerId: (id) => {
-                if (!id || typeof id !== 'string') return null;
-                const clean = id.replace(/[^a-zA-Z0-9_-]/g, '');
-                return clean.length >= 10 && clean.length <= 64 ? clean : null;
-            }
-        };
-
-        // ============================================================
-        // TOAST
-        // ============================================================
-        const Toast = {
-            container: DOM.get('toast-container'),
-            show: (message, type) => {
-                type = type || 'info';
-                const colors = {
-                    info: 'bg-surface text-slate-200',
-                    success: 'bg-surface text-success',
-                    error: 'bg-surface text-danger',
-                    warning: 'bg-surface text-warning',
-                };
-                const toast = DOM.create('div', 'pointer-events-auto px-4 py-2.5 rounded-3xl font-medium shadow-2xl shadow-black/50 text-sm animate-fade-in flex items-center gap-2 ' + (colors[type] || colors.info));
-                toast.appendChild(icon(type === 'success' ? 'check-circle' : type === 'error' ? 'warning-circle' : type === 'warning' ? 'warning' : 'info', 'text-base'));
-                toast.appendChild(DOM.create('span', '', { text: message }));
-                Toast.container.appendChild(toast);
-                setTimeout(() => {
-                    toast.classList.remove('animate-fade-in');
-                    toast.classList.add('animate-fade-out');
-                    setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 200);
-                }, 3000);
-            }
-        };
-
-        // ============================================================
-        // STATE
-        // ============================================================
-        const State = {
-            current: null,
-            elements: {
-                upload: DOM.get('state-upload'),
-                share: DOM.get('state-share'),
-                transfer: DOM.get('state-transfer'),
-                done: DOM.get('state-done'),
-                error: DOM.get('state-error'),
-            },
-            go: (name) => {
-                Object.values(State.elements).forEach(el => {
-                    if (!el.classList.contains('hidden')) {
-                        el.classList.add('animate-fade-out');
-                        setTimeout(() => {
-                            el.classList.add('hidden');
-                            el.classList.remove('animate-fade-out');
-                        }, 150);
-                    }
-                });
-                setTimeout(() => {
-                    const target = State.elements[name];
-                    target.classList.remove('hidden', 'animate-fade-out');
-                    target.classList.add('animate-fade-in');
-                    State.current = name;
-                }, 200);
-            }
-        };
-
-        // ============================================================
-        // SETTINGS
-        // ============================================================
-        const Settings = {
-            popover: DOM.get('settings-popover'),
-            toggle: DOM.get('settings-toggle'),
-            open: () => {
-                DOM.show(Settings.popover);
-                Settings.toggle.setAttribute('aria-expanded', 'true');
-            },
-            close: () => {
-                DOM.hide(Settings.popover);
-                Settings.toggle.setAttribute('aria-expanded', 'false');
-            },
-            init: () => {
-                Settings.toggle.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    if (Settings.popover.classList.contains('hidden')) Settings.open();
-                    else Settings.close();
-                });
-                document.addEventListener('click', (e) => {
-                    if (!Settings.popover.classList.contains('hidden') && !Settings.popover.contains(e.target) && !Settings.toggle.contains(e.target)) {
-                        Settings.close();
-                    }
-                });
-                DOM.get('shortcut-help-btn').addEventListener('click', () => { Settings.close(); Shortcuts.open(); });
-            }
-        };
-
-        // ============================================================
-        // SHORTCUTS
-        // ============================================================
-        const Shortcuts = {
-            modal: DOM.get('shortcut-modal'),
-            open: () => { DOM.show(Shortcuts.modal); },
-            close: () => { DOM.hide(Shortcuts.modal); },
-            init: () => {
-                document.addEventListener('keydown', (e) => {
-                    if (e.ctrlKey && e.key === ',') {
-                        e.preventDefault();
-                        if (Settings.popover.classList.contains('hidden')) Settings.open();
-                        else Settings.close();
-                        return;
-                    }
-                    if (e.key === 'Escape') {
-                        if (!Shortcuts.modal.classList.contains('hidden')) { Shortcuts.close(); return; }
-                        if (!Settings.popover.classList.contains('hidden')) { Settings.close(); return; }
-                        if (!Summary.panel.classList.contains('hidden')) { Summary.hide(); return; }
-                        if (State.current === 'transfer') {
-                            DOM.get('cancel-transfer-btn').click();
-                            return;
-                        }
-                        if (State.current === 'share') {
-                            App.reset();
-                            return;
-                        }
-                        return;
-                    }
-                    if (State.current === 'upload') {
-                        if (e.ctrlKey && e.key === 'o') {
-                            e.preventDefault();
-                            DOM.get('file-input').click();
-                            return;
-                        }
-                        if (e.key === 'Enter' && FileStore.files.length > 0) {
-                            e.preventDefault();
-                            DOM.get('confirm-files-btn').click();
-                            return;
-                        }
-                    }
-                    if (State.current === 'share') {
-                        if (e.ctrlKey && e.key === 'c') {
-                            e.preventDefault();
-                            DOM.get('copy-link-btn').click();
-                            return;
-                        }
-                    }
-                    if (State.current === 'transfer') {
-                        if (e.key === ' ') {
-                            e.preventDefault();
-                            DOM.get('pause-btn').click();
-                            return;
-                        }
-                    }
-                });
-                Shortcuts.modal.addEventListener('click', (e) => {
-                    if (e.target === Shortcuts.modal) Shortcuts.close();
-                });
-            }
-        };
-
-        // ============================================================
-        // SUMMARY
-        // ============================================================
-        const Summary = {
-            panel: DOM.get('summary-panel'),
-            show: () => { DOM.show(Summary.panel); },
-            hide: () => { DOM.hide(Summary.panel); },
-            init: () => {
-                DOM.get('show-summary-btn').addEventListener('click', Summary.show);
-            }
-        };
-
-        // ============================================================
-        // ERROR DETAILS
-        // ============================================================
-        const ErrorDetails = {
-            toggle: () => {
-                const diag = DOM.get('error-diagnostics');
-                const caret = DOM.get('error-caret');
-                if (diag.classList.contains('hidden')) {
-                    DOM.show(diag);
-                    caret.classList.add('rotate-180');
-                } else {
-                    DOM.hide(diag);
-                    caret.classList.remove('rotate-180');
-                }
-            }
-        };
-
-        // ============================================================
-        // FILE STORE
-        // ============================================================
-        const FileStore = {
-            files: [],
-            add: (fileList) => {
-                const newFiles = Array.from(fileList);
-                const errors = Safety.validateFiles(FileStore.files.concat(newFiles));
-                if (errors.length > 0) {
-                    errors.slice(0, 3).forEach(e => Toast.show(e, 'error'));
-                    return false;
-                }
-                FileStore.files = FileStore.files.concat(newFiles);
-                FileStore.render();
-                return true;
-            },
-            remove: (index) => {
-                FileStore.files.splice(index, 1);
-                FileStore.render();
-            },
-            clear: () => {
-                FileStore.files = [];
-                FileStore.render();
-            },
-            getTotalSize: () => FileStore.files.reduce((sum, f) => sum + f.size, 0),
-            render: () => {
-                const container = DOM.get('file-list');
-                const listContainer = DOM.get('file-list-container');
-                DOM.clear(container);
-                if (FileStore.files.length === 0) { DOM.hide(listContainer); return; }
-                DOM.show(listContainer);
-                DOM.get('file-count-label').textContent = FileStore.files.length + ' file' + (FileStore.files.length !== 1 ? 's' : '');
-                DOM.get('total-size-label').textContent = formatBytes(FileStore.getTotalSize());
-                FileStore.files.forEach((file, idx) => {
-                    const iconName = getPhosphorIcon(getFileIconName(file.name));
-                    const iconWrapper = DOM.create('div', 'bg-bg p-2 rounded-3xl text-slate-400');
-                    iconWrapper.appendChild(icon(iconName, 'text-base'));
-                    const removeBtn = DOM.create('button', 'opacity-0 group-hover:opacity-100 transition-opacity text-slate-500 hover:text-danger p-2 rounded-3xl hover:bg-danger/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50', { 'aria-label': 'Remove ' + file.name });
-                    removeBtn.appendChild(icon('trash', 'text-xs'));
-                    removeBtn.addEventListener('click', () => FileStore.remove(idx));
-                    const row = DOM.create('div', 'flex items-center gap-3 px-3 py-2 hover:bg-white/[0.02] transition-colors group rounded-3xl', {}, [
-                        iconWrapper,
-                        DOM.create('div', 'flex-1 min-w-0 text-left', {}, [
-                            DOM.create('p', 'text-sm font-medium text-slate-200 truncate', { text: file.name }),
-                            DOM.create('p', 'text-xs text-slate-500', { text: formatBytes(file.size) }),
-                        ]),
-                        removeBtn
-                    ]);
-                    container.appendChild(row);
-                });
-            }
-        };
-
-        // ============================================================
-        // TRANSFER MANAGER
-        // ============================================================
-        const Transfer = {
-            queue: [],
-            currentIndex: 0,
-            isPaused: false,
-            isCancelled: false,
-            stats: { startTime: 0, lastUpdate: 0, bytesSinceUpdate: 0, totalBytes: 0, sentBytes: 0, retries: 0, chunks: 0 },
-            reset: () => {
-                Transfer.queue = [];
-                Transfer.currentIndex = 0;
-                Transfer.isPaused = false;
-                Transfer.isCancelled = false;
-                Transfer.stats = { startTime: 0, lastUpdate: 0, bytesSinceUpdate: 0, totalBytes: 0, sentBytes: 0, retries: 0, chunks: 0 };
-            },
-            initQueue: (files) => {
-                Transfer.reset();
-                Transfer.queue = files.map((file, idx) => ({
-                    id: idx,
-                    file: file,
-                    name: Safety.sanitizeFilename(file.name),
-                    size: file.size,
-                    type: file.type || 'application/octet-stream',
-                    sent: 0,
-                    status: 'pending',
-                    retries: 0,
-                    buffers: [],
-                    expectedSeq: 0,
-                    downloadUrl: null,
-                }));
-                Transfer.stats.totalBytes = files.reduce((s, f) => s + f.size, 0);
-            },
-            updateMasterProgress: () => {
-                const sent = Transfer.queue.reduce((s, q) => s + q.sent, 0);
-                Transfer.stats.sentBytes = sent;
-                const pct = Transfer.stats.totalBytes > 0 ? Math.round((sent / Transfer.stats.totalBytes) * 100) : 0;
-                DOM.get('master-progress').style.width = pct + '%';
-                DOM.get('master-percent').textContent = pct + '%';
-                DOM.get('master-bytes').textContent = formatBytes(sent) + ' / ' + formatBytes(Transfer.stats.totalBytes);
-                const complete = Transfer.queue.filter(q => q.status === 'complete').length;
-                DOM.get('queue-status').textContent = complete + ' / ' + Transfer.queue.length + ' done';
-                const now = Date.now();
-                if (now - Transfer.stats.lastUpdate > 1000) {
-                    const speedBps = Transfer.stats.bytesSinceUpdate / ((now - Transfer.stats.lastUpdate) / 1000);
-                    const speedMbps = (speedBps / (1024 * 1024)).toFixed(1);
-                    DOM.get('transfer-speed').textContent = speedMbps > 0 ? speedMbps + ' MB/s' : '--';
-                    const elapsed = (now - Transfer.stats.startTime) / 1000;
-                    const overallSpeed = sent / elapsed;
-                    if (overallSpeed > 0 && sent < Transfer.stats.totalBytes) {
-                        const remaining = Transfer.stats.totalBytes - sent;
-                        const eta = Math.round(remaining / overallSpeed);
-                        DOM.get('transfer-eta').textContent = eta > 0 ? formatDuration(eta * 1000) + ' left' : 'Finishing';
-                    }
-                    Transfer.stats.lastUpdate = now;
-                    Transfer.stats.bytesSinceUpdate = 0;
-                }
-            },
-            renderQueue: () => {
-                const container = DOM.get('transfer-queue');
-                DOM.clear(container);
-                Transfer.queue.forEach((item, idx) => {
-                    const iconName = getPhosphorIcon(getFileIconName(item.name));
-                    const iconWrapper = DOM.create('div', 'bg-bg p-1.5 rounded-3xl text-slate-400');
-                    iconWrapper.appendChild(icon(iconName, 'text-sm'));
-                    const isActive = idx === Transfer.currentIndex && item.status === 'active';
-                    const statusColors = { pending: 'text-slate-500', active: 'text-brand animate-pulse', paused: 'text-warning', complete: 'text-success', error: 'text-danger' };
-                    const statusColor = statusColors[item.status] || 'text-slate-500';
-                    const pct = item.size > 0 ? Math.round((item.sent / item.size) * 100) : 0;
-                    const row = DOM.create('div', 'flex items-center gap-3 px-3 py-2.5 ' + (isActive ? 'bg-white/[0.03] rounded-3xl' : 'rounded-3xl'), {}, [
-                        iconWrapper,
-                        DOM.create('div', 'flex-1 min-w-0', {}, [
-                            DOM.create('div', 'flex justify-between items-center mb-0.5', {}, [
-                                DOM.create('p', 'text-sm font-medium text-slate-200 truncate', { text: item.name }),
-                                DOM.create('span', 'text-[10px] font-bold ' + statusColor, { text: item.status.toUpperCase() }),
-                            ]),
-                            DOM.create('div', 'w-full bg-bg rounded-3xl h-1 overflow-hidden', {}, [
-                                DOM.create('div', 'bg-brand h-full transition-all duration-300', { style: { width: pct + '%' } }),
-                            ]),
-                            DOM.create('div', 'flex justify-between mt-0.5', {}, [
-                                DOM.create('span', 'text-[10px] text-slate-500', { text: formatBytes(item.sent) + ' / ' + formatBytes(item.size) }),
-                                DOM.create('span', 'text-[10px] text-slate-500', { text: pct + '%' }),
-                            ]),
-                        ]),
-                    ]);
-                    container.appendChild(row);
-                });
-            },
-        };
-
-        // ============================================================
-        // PEER NETWORK
-        // ============================================================
-        const PeerNet = {
-            peer: null,
-            conn: null,
-            isReceiver: false,
-            connectToId: null,
-            encryptionKey: null,
-            throttleMs: 50,
-            securityMode: 'encrypt',
-
-            init: () => {
-                const params = new URLSearchParams(window.location.search);
-                PeerNet.connectToId = Safety.sanitizePeerId(params.get('peer'));
-                PeerNet.encryptionKey = window.location.hash.slice(1) || null;
-                PeerNet.isReceiver = !!PeerNet.connectToId;
-
-                const throttleSelect = DOM.get('throttle-select');
-                const securitySelect = DOM.get('security-select');
-                PeerNet.throttleMs = parseInt(throttleSelect.value);
-                PeerNet.securityMode = securitySelect.value;
-
-                throttleSelect.addEventListener('change', (e) => { PeerNet.throttleMs = parseInt(e.target.value); });
-                securitySelect.addEventListener('change', (e) => { PeerNet.securityMode = e.target.value; });
-
-                PeerNet.peer = new Peer({ debug: 1 });
-
-                PeerNet.peer.on('open', (id) => {
-                    updateStatus('Ready', 'success');
-                    if (PeerNet.isReceiver) { PeerNet.startReceiver(); }
-                    else { State.go('upload'); PeerNet.setupSender(); }
-                });
-
-                PeerNet.peer.on('error', (err) => {
-                    console.error(err);
-                    updateStatus('Error', 'danger');
-                    let title = 'Error', msg = err.message || 'Unexpected error.', canRetry = false;
-                    if (err.type === 'peer-unavailable') { title = 'Unavailable'; msg = 'Sender is offline or link expired.'; }
-                    else if (err.type === 'network' || err.type === 'server-error') { title = 'Network'; msg = 'Cannot reach signaling server.'; canRetry = true; }
-                    else if (err.type === 'disconnected') { title = 'Disconnected'; msg = 'Connection closed unexpectedly.'; canRetry = true; }
-                    else if (err.type === 'unavailable-id') { title = 'ID Conflict'; msg = 'Peer ID already in use.'; }
-                    showError(title, msg, { type: err.type, canRetry: canRetry });
-                });
-
-                PeerNet.peer.on('disconnected', () => updateStatus('Offline', 'danger'));
-            },
-
-            setupSender: () => {
-                const dropzone = DOM.get('dropzone');
-                const fileInput = DOM.get('file-input');
-                const handleDrag = (e) => { e.preventDefault(); e.stopPropagation(); };
-
-                dropzone.addEventListener('dragenter', handleDrag);
-                dropzone.addEventListener('dragover', (e) => { handleDrag(e); dropzone.classList.add('bg-brand/5'); });
-                dropzone.addEventListener('dragleave', (e) => { handleDrag(e); dropzone.classList.remove('bg-brand/5'); });
-                dropzone.addEventListener('drop', (e) => {
-                    handleDrag(e);
-                    dropzone.classList.remove('bg-brand/5');
-                    if (e.dataTransfer.files.length) FileStore.add(e.dataTransfer.files);
-                });
-                fileInput.addEventListener('change', (e) => { if (e.target.files.length) FileStore.add(e.target.files); });
-
-                dropzone.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        fileInput.click();
-                    }
-                });
-
-                DOM.get('clear-files-btn').addEventListener('click', FileStore.clear);
-                DOM.get('confirm-files-btn').addEventListener('click', () => {
-                    if (FileStore.files.length === 0) { Toast.show('Select at least one file', 'warning'); return; }
-                    PeerNet.prepareShare();
-                });
-
-                PeerNet.peer.on('connection', (conn) => {
-                    if (PeerNet.conn) { conn.close(); return; }
-                    PeerNet.conn = conn;
-                    PeerNet.handleConnection(conn);
-                });
-            },
-
-            prepareShare: () => {
-                if (!PeerNet.encryptionKey && PeerNet.securityMode !== 'none') {
-                    PeerNet.encryptionKey = Crypto.generateKey();
-                }
-                const baseUrl = window.location.origin + window.location.pathname;
-                const shareUrl = baseUrl + '?peer=' + PeerNet.peer.id + '#' + (PeerNet.encryptionKey || '');
-
-                new QRious({ element: DOM.get('qrcode'), value: shareUrl, size: 250, level: 'H', foreground: '#0e0e0f', background: '#ffffff' });
-
-                const manifest = DOM.get('share-file-list');
-                DOM.clear(manifest);
-                FileStore.files.forEach(file => {
-                    const iconName = getPhosphorIcon(getFileIconName(file.name));
-                    const iconWrapper = DOM.create('div', 'bg-bg p-1.5 rounded-3xl text-slate-400');
-                    iconWrapper.appendChild(icon(iconName, 'text-sm'));
-                    const row = DOM.create('div', 'flex items-center gap-3 px-3 py-2 rounded-3xl', {}, [
-                        iconWrapper,
-                        DOM.create('div', 'flex-1 min-w-0 text-left', {}, [
-                            DOM.create('p', 'text-sm text-slate-200 truncate', { text: Safety.sanitizeFilename(file.name) }),
-                            DOM.create('p', 'text-xs text-slate-500', { text: formatBytes(file.size) }),
-                        ]),
-                    ]);
-                    manifest.appendChild(row);
-                });
-
-                const secText = PeerNet.securityMode === 'none' ? 'Standard' :
-                                PeerNet.securityMode === 'encrypt' ? 'XOR stream' :
-                                'Paranoid';
-                DOM.get('security-badge-text').textContent = secText;
-
-                DOM.get('copy-link-btn').onclick = () => { navigator.clipboard.writeText(shareUrl).then(() => Toast.show('Link copied', 'success')); };
-                DOM.get('copy-key-btn').onclick = () => {
-                    if (PeerNet.encryptionKey) { navigator.clipboard.writeText(PeerNet.encryptionKey).then(() => Toast.show('Key copied', 'success')); }
-                    else { Toast.show('No key in standard mode', 'info'); }
-                };
-
-                State.go('share');
-            },
-
-            startReceiver: () => {
-                State.go('transfer');
-                DOM.get('transfer-status').textContent = 'Connecting';
-                DOM.get('transfer-subtitle').textContent = 'Target: ' + PeerNet.connectToId.slice(0, 12) + '...';
-                const conn = PeerNet.peer.connect(PeerNet.connectToId, { reliable: true, metadata: { version: '2.0' } });
-                PeerNet.conn = conn;
-                PeerNet.handleConnection(conn, true);
-            },
-
-            handleConnection: (conn, isReceiver) => {
-                isReceiver = isReceiver || false;
-                let connectTimeout = setTimeout(() => {
-                    if (conn.open === false) {
-                        showError('Timeout', 'Failed to connect within 30s. Sender may be behind a restrictive NAT.', { canRetry: true });
-                    }
-                }, CONFIG.CONNECT_TIMEOUT);
-
-                conn.on('open', () => {
-                    clearTimeout(connectTimeout);
-                    updateStatus('Connected', 'success');
-                    if (isReceiver) {
-                        DOM.get('transfer-status').textContent = 'Awaiting manifest';
-                        DOM.get('transfer-subtitle').textContent = 'Secure channel open';
-                    } else {
-                        Transfer.initQueue(FileStore.files);
-                        State.go('transfer');
-                        DOM.get('transfer-status').textContent = 'Sending manifest';
-                        DOM.get('transfer-subtitle').textContent = Transfer.queue.length + ' files';
-                        Transfer.stats.startTime = Date.now();
-                        Transfer.stats.lastUpdate = Date.now();
-                        conn.send({ type: 'manifest', files: Transfer.queue.map(q => ({ id: q.id, name: q.name, size: q.size, filetype: q.type })), security: PeerNet.securityMode, version: '2.0' });
-                        Transfer.renderQueue();
-                        PeerNet.sendNextFile();
-                    }
-                });
-
-                let currentFile = null;
-
-                conn.on('data', (data) => {
-                    if (!data || typeof data !== 'object') return;
-
-                    if (isReceiver) {
-                        if (data.type === 'manifest') {
-                            if (!Array.isArray(data.files)) { showError('Bad manifest', 'Corrupted manifest from sender.'); return; }
-                            Transfer.queue = data.files.map(f => ({
-                                id: f.id, name: Safety.sanitizeFilename(f.name), size: f.size,
-                                type: f.filetype || 'application/octet-stream', sent: 0, status: 'pending',
-                                buffers: [], expectedSeq: 0, downloadUrl: null,
-                            }));
-                            Transfer.stats.totalBytes = Transfer.queue.reduce((s, q) => s + q.size, 0);
-                            Transfer.stats.startTime = Date.now();
-                            Transfer.stats.lastUpdate = Date.now();
-                            DOM.get('transfer-status').textContent = 'Receiving';
-                            Transfer.renderQueue();
-                            Transfer.updateMasterProgress();
-                            conn.send({ type: 'ack-manifest' });
-                        }
-                        else if (data.type === 'file-header') {
-                            currentFile = Transfer.queue.find(q => q.id === data.id);
-                            if (!currentFile) { conn.send({ type: 'error', message: 'Unknown ID' }); return; }
-                            currentFile.status = 'active';
-                            currentFile.buffers = [];
-                            currentFile.sent = 0;
-                            currentFile.expectedSeq = 0;
-                            Transfer.currentIndex = Transfer.queue.indexOf(currentFile);
-                            DOM.get('transfer-status').textContent = 'Receiving: ' + currentFile.name;
-                            Transfer.renderQueue();
-                            conn.send({ type: 'ack-header', id: data.id });
-                        }
-                        else if (data.type === 'chunk') {
-                            if (!currentFile || data.id !== currentFile.id) return;
-                            if (data.seq !== currentFile.expectedSeq) {
-                                console.warn('Seq gap', currentFile.expectedSeq, data.seq);
-                            }
-                            currentFile.expectedSeq = (data.seq || 0) + 1;
-                            let chunkData = data.data;
-                            if (PeerNet.encryptionKey && data.encrypted) {
-                                try { chunkData = Crypto.decrypt(chunkData, PeerNet.encryptionKey); }
-                                catch (e) { conn.send({ type: 'chunk-error', id: currentFile.id, seq: data.seq, message: 'Decrypt failed' }); return; }
-                            }
-                            if (data.checksum && PeerNet.securityMode === 'paranoid') {
-                                const cs = Crypto.checksum(chunkData);
-                                if (cs !== data.checksum) {
-                                    conn.send({ type: 'chunk-error', id: currentFile.id, seq: data.seq, message: 'Checksum mismatch' });
-                                    Transfer.stats.retries++;
-                                    DOM.get('retry-display').textContent = Transfer.stats.retries;
-                                    return;
-                                }
-                            }
-                            currentFile.buffers.push(chunkData);
-                            currentFile.sent += chunkData.byteLength;
-                            Transfer.stats.bytesSinceUpdate += chunkData.byteLength;
-                            Transfer.stats.chunks++;
-                            DOM.get('chunk-display').textContent = Transfer.stats.chunks;
-                            Transfer.updateMasterProgress();
-                            Transfer.renderQueue();
-                            setTimeout(() => { conn.send({ type: 'ack-chunk', id: currentFile.id, seq: data.seq }); }, PeerNet.throttleMs / 2);
-                        }
-                        else if (data.type === 'file-done') {
-                            if (!currentFile) return;
-                            currentFile.status = 'complete';
-                            Transfer.updateMasterProgress();
-                            Transfer.renderQueue();
-                            conn.send({ type: 'ack-file-done', id: currentFile.id });
-                            if (Transfer.queue.every(q => q.status === 'complete')) {
-                                DOM.get('transfer-status').textContent = 'Complete';
-                                setTimeout(() => PeerNet.showDone(), 400);
-                            }
-                        }
-                        else if (data.type === 'all-done') {
-                            DOM.get('transfer-status').textContent = 'All done';
-                            setTimeout(() => PeerNet.showDone(), 400);
-                        }
-                        else if (data.type === 'cancel') { showError('Cancelled', 'Sender cancelled.'); }
-                        else if (data.type === 'error') { showError('Sender error', data.message || 'Error on sender side.'); }
-                    } else {
-                        if (data.type === 'ack-manifest') { DOM.get('transfer-status').textContent = 'Started'; }
-                        else if (data.type === 'ack-header') {
-                            const fileItem = Transfer.queue.find(q => q.id === data.id);
-                            if (fileItem) {
-                                fileItem.status = 'active';
-                                Transfer.currentIndex = Transfer.queue.indexOf(fileItem);
-                                Transfer.renderQueue();
-                                PeerNet.sendChunks(fileItem, conn);
-                            }
-                        }
-                        else if (data.type === 'ack-chunk') { }
-                        else if (data.type === 'chunk-error') {
-                            Toast.show('Chunk error: ' + data.message, 'warning');
-                            Transfer.stats.retries++;
-                            DOM.get('retry-display').textContent = Transfer.stats.retries;
-                        }
-                        else if (data.type === 'ack-file-done') {
-                            const fileItem = Transfer.queue.find(q => q.id === data.id);
-                            if (fileItem) {
-                                fileItem.status = 'complete';
-                                Transfer.updateMasterProgress();
-                                Transfer.renderQueue();
-                                const next = Transfer.queue.find(q => q.status === 'pending');
-                                if (next) { setTimeout(() => PeerNet.sendFileHeader(next, conn), PeerNet.throttleMs); }
-                                else if (Transfer.queue.every(q => q.status === 'complete')) {
-                                    conn.send({ type: 'all-done' });
-                                    DOM.get('transfer-status').textContent = 'All sent';
-                                    setTimeout(() => PeerNet.showDone(), 400);
-                                }
-                            }
-                        }
-                        else if (data.type === 'cancel') { showError('Cancelled', 'Receiver cancelled.'); }
-                    }
-                });
-
-                conn.on('close', () => {
-                    updateStatus('Closed', 'danger');
-                    const allComplete = Transfer.queue.every(q => q.status === 'complete');
-                    if (allComplete && State.current !== 'done') { PeerNet.showDone(); }
-                    else if (!allComplete && State.current === 'transfer') { showError('Lost', 'Peer disconnected before completion.', { canRetry: true }); }
-                });
-
-                conn.on('error', (err) => { showError('Channel error', err.message || 'Data channel failed.'); });
-
-                DOM.get('pause-btn').onclick = () => {
-                    Transfer.isPaused = !Transfer.isPaused;
-                    const btnText = DOM.get('pause-btn-text');
-                    const btnIcon = DOM.get('pause-icon');
-                    btnText.textContent = Transfer.isPaused ? 'Resume' : 'Pause';
-                    btnIcon.className = Transfer.isPaused ? 'ph ph-play text-sm' : 'ph ph-pause text-sm';
-                    Toast.show(Transfer.isPaused ? 'Paused' : 'Resumed', 'info');
-                };
-
-                DOM.get('break-btn').onclick = () => {
-                    if (confirm('Sever the connection to test recovery?')) {
-                        conn.close();
-                        PeerNet.peer.destroy();
-                        showError('Broken', 'You severed the connection.', { canRetry: false });
-                    }
-                };
-
-                DOM.get('cancel-transfer-btn').onclick = () => {
-                    if (confirm('Cancel all transfers?')) {
-                        conn.send({ type: 'cancel' });
-                        setTimeout(() => { conn.close(); showError('Cancelled', 'You cancelled.'); }, 300);
-                    }
-                };
-            },
-
-            sendNextFile: () => {
-                const pending = Transfer.queue.find(q => q.status === 'pending');
-                if (pending) PeerNet.sendFileHeader(pending, PeerNet.conn);
-            },
-
-            sendFileHeader: (fileItem, conn) => {
-                fileItem.status = 'active';
-                Transfer.currentIndex = Transfer.queue.indexOf(fileItem);
-                Transfer.renderQueue();
-                const header = { type: 'file-header', id: fileItem.id, name: fileItem.name, size: fileItem.size, filetype: fileItem.type };
-                if (PeerNet.securityMode === 'paranoid') header.checksum = 'pending';
-                conn.send(header);
-            },
-
-            sendChunks: (fileItem, conn) => {
-                const file = fileItem.file;
-                let offset = 0;
-                let seq = 0;
-
-                function sendNext() {
-                    if (!conn || conn.open === false || Transfer.isCancelled) {
-                        if (!Transfer.isCancelled && conn && conn.open === false) {
-                            showError('Lost', 'Peer disconnected during transfer.', { canRetry: true });
-                        }
-                        return;
-                    }
-                    if (Transfer.isPaused) { setTimeout(sendNext, 500); return; }
-                    if (offset >= file.size) {
-                        conn.send({ type: 'file-done', id: fileItem.id });
-                        return;
-                    }
-
-                    const end = Math.min(offset + CONFIG.CHUNK_SIZE, file.size);
-                    const slice = file.slice(offset, end);
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        const buffer = e.target.result;
-                        let payload = buffer;
-                        let encrypted = false;
-                        let checksum = null;
-                        if (PeerNet.encryptionKey && PeerNet.securityMode !== 'none') {
-                            payload = Crypto.encrypt(buffer, PeerNet.encryptionKey);
-                            encrypted = true;
-                        }
-                        if (PeerNet.securityMode === 'paranoid') checksum = Crypto.checksum(payload);
-
-                        const chunkMsg = { type: 'chunk', id: fileItem.id, seq: seq, data: payload, encrypted: encrypted };
-                        if (checksum) chunkMsg.checksum = checksum;
-                        conn.send(chunkMsg);
-
-                        offset += buffer.byteLength;
-                        seq++;
-                        fileItem.sent = offset;
-                        Transfer.stats.bytesSinceUpdate += buffer.byteLength;
-                        Transfer.stats.chunks++;
-                        DOM.get('chunk-display').textContent = Transfer.stats.chunks;
-                        Transfer.updateMasterProgress();
-                        Transfer.renderQueue();
-                        DOM.get('rtt-display').textContent = Math.floor(Math.random() * 40 + 15);
-
-                        if (PeerNet.throttleMs > 0) setTimeout(sendNext, PeerNet.throttleMs);
-                        else setTimeout(sendNext, 0);
-                    };
-                    reader.onerror = () => { Toast.show('Read error', 'error'); };
-                    reader.readAsArrayBuffer(slice);
-                }
-                sendNext();
-            },
-
-            showDone: () => {
-                const summary = DOM.get('done-summary');
-                DOM.clear(summary);
-                const duration = Transfer.stats.startTime ? Date.now() - Transfer.stats.startTime : 0;
-                const stats = [
-                    ['Files', '' + Transfer.queue.length],
-                    ['Total', formatBytes(Transfer.stats.totalBytes)],
-                    ['Duration', formatDuration(duration)],
-                    ['Speed', Transfer.stats.totalBytes > 0 && duration > 0 ? (Transfer.stats.totalBytes / duration * 1000 / 1024 / 1024).toFixed(1) + ' MB/s' : '--'],
-                    ['Chunks', '' + Transfer.stats.chunks],
-                    ['Retries', '' + Transfer.stats.retries],
-                ];
-                stats.forEach(([label, value]) => {
-                    summary.appendChild(DOM.create('div', 'flex justify-between text-sm', {}, [
-                        DOM.create('span', 'text-slate-500', { text: label }),
-                        DOM.create('span', 'text-slate-200 font-medium', { text: value }),
-                    ]));
-                });
-
-                const filesContainer = DOM.get('done-files-container');
-                const filesList = DOM.get('done-file-list');
-                DOM.clear(filesList);
-
-                if (PeerNet.isReceiver && Transfer.queue.some(q => q.buffers.length > 0)) {
-                    DOM.show(filesContainer);
-                    Transfer.queue.forEach(q => {
-                        if (q.buffers.length > 0) {
-                            const blob = new Blob(q.buffers, { type: q.type });
-                            const url = URL.createObjectURL(blob);
-                            q.downloadUrl = url;
-                            const iconName = getPhosphorIcon(getFileIconName(q.name));
-                            const row = DOM.create('div', 'flex items-center gap-3 px-3 py-2.5 rounded-3xl', {}, [
-                                DOM.create('div', 'bg-bg p-2 rounded-3xl text-slate-400', {}, [icon(iconName, 'text-lg')]),
-                                DOM.create('div', 'flex-1 min-w-0 text-left', {}, [
-                                    DOM.create('p', 'text-sm font-medium text-slate-200 truncate', { text: q.name }),
-                                    DOM.create('p', 'text-xs text-slate-500', { text: formatBytes(q.size) }),
-                                ]),
-                                DOM.create('a', 'bg-brand hover:bg-brand/90 text-bg text-xs font-bold px-3 py-2 rounded-3xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50', {
-                                    href: url, download: q.name, text: 'Download'
-                                }),
-                            ]);
-                            filesList.appendChild(row);
-                        }
-                    });
-                    const downloadAll = DOM.create('button', 'w-full mt-2 bg-bg hover:bg-white/5 text-slate-200 py-2.5 rounded-3xl font-medium transition-colors text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50', { text: 'Download All' });
-                    downloadAll.addEventListener('click', () => {
-                        Transfer.queue.forEach((q, i) => {
-                            if (q.downloadUrl) {
-                                setTimeout(() => {
-                                    const a = document.createElement('a');
-                                    a.href = q.downloadUrl;
-                                    a.download = q.name;
-                                    a.style.display = 'none';
-                                    document.body.appendChild(a);
-                                    a.click();
-                                    document.body.removeChild(a);
-                                }, i * 250);
-                            }
-                        });
-                    });
-                    filesList.appendChild(downloadAll);
-                } else {
-                    DOM.hide(filesContainer);
-                }
-                State.go('done');
-            },
-        };
-
-        // ============================================================
-        // ERROR & STATUS
-        // ============================================================
-        function showError(title, message, details) {
-            details = details || {};
-            DOM.get('error-title').textContent = title;
-            DOM.get('error-message').textContent = message;
-            const diagnostics = DOM.get('error-diagnostics');
-            DOM.clear(diagnostics);
-            const items = [
-                ['Code', details.type || 'UNKNOWN'],
-                ['Time', new Date().toISOString()],
-                ['State', State.current || 'unknown'],
-                ['Peer', PeerNet.peer && PeerNet.peer.id ? PeerNet.peer.id.slice(0, 12) + '...' : 'N/A'],
-                ['Mode', PeerNet.isReceiver ? 'Receiver' : 'Sender'],
-                ['Security', PeerNet.securityMode],
-            ];
-            items.forEach(([label, value]) => {
-                diagnostics.appendChild(DOM.create('div', 'flex justify-between', {}, [
-                    DOM.create('span', 'text-slate-500', { text: label + ':' }),
-                    DOM.create('span', 'text-slate-300', { text: value }),
-                ]));
-            });
-            const retryBtn = DOM.get('retry-btn');
-            if (details.canRetry && PeerNet.isReceiver) {
-                DOM.show(retryBtn);
-                retryBtn.onclick = () => { State.go('transfer'); PeerNet.startReceiver(); };
-            } else {
-                DOM.hide(retryBtn);
-            }
-            State.go('error');
+        else if (data.type === 'all-done') setTimeout(() => PeerNet.showDone(), 400);
+        else if (data.type === 'cancel') showError('Cancelled','Sender cancelled the transfer.');
+        else if (data.type === 'error') showError('Sender error', data.message || 'Error on sender side.');
+      } else {
+        if (data.type === 'ack-manifest') DOM.get('transfer-status').textContent = 'Transferring';
+        else if (data.type === 'ack-header') {
+          const fi = Transfer.queue.find(q => q.id === data.id);
+          if (fi) { fi.status = 'active'; Transfer.currentIndex = Transfer.queue.indexOf(fi); Transfer.renderQueue(); this.sendChunks(fi, conn); }
         }
-
-        function updateStatus(text, color) {
-            const dot = DOM.get('status-dot');
-            const ping = DOM.get('status-ping');
-            const label = DOM.get('status-text');
-            const map = { success: 'bg-emerald-500', danger: 'bg-red-500', warning: 'bg-amber-500', info: 'bg-blue-500' };
-            const bg = map[color] || 'bg-slate-500';
-            dot.className = 'relative inline-flex rounded-full h-2 w-2 ' + bg;
-            ping.className = 'animate-ping absolute inline-flex h-full w-full rounded-full ' + bg + ' opacity-75';
-            label.textContent = text;
+        else if (data.type === 'chunk-error') {
+          Toast.show('Chunk error: ' + data.message, 'warning');
+          Transfer.stats.retries++;
+          DOM.get('retry-display').textContent = Transfer.stats.retries;
         }
+        else if (data.type === 'ack-file-done') {
+          const fi = Transfer.queue.find(q => q.id === data.id);
+          if (fi) {
+            fi.status = 'complete';
+            Transfer.updateMasterProgress();
+            Transfer.renderQueue();
+            const next = Transfer.queue.find(q => q.status === 'pending');
+            if (next) setTimeout(() => this.sendFileHeader(next, conn), this.throttleMs);
+            else if (Transfer.queue.every(q => q.status === 'complete')) {
+              conn.send({ type:'all-done' });
+              DOM.get('transfer-status').textContent = 'All sent';
+              setTimeout(() => PeerNet.showDone(), 400);
+            }
+          }
+        }
+        else if (data.type === 'cancel') showError('Cancelled','Receiver cancelled.');
+      }
+    });
 
-        // ============================================================
-        // APP
-        // ============================================================
-        const App = {
-            init: () => {
-                if (!window.isSecureContext) {
-                    alert('WebRTC requires HTTPS or localhost.');
-                    return;
-                }
-                window.addEventListener('beforeunload', (e) => {
-                    if (State.current === 'transfer' || State.current === 'share') {
-                        e.preventDefault();
-                        e.returnValue = '';
-                    }
-                });
-                Settings.init();
-                Shortcuts.init();
-                Summary.init();
-                PeerNet.init();
-            },
-            reset: () => { window.location.href = window.location.pathname; }
-        };
+    conn.on('close', () => {
+      updateStatus('Closed','danger');
+      if (Transfer.queue.every(q => q.status === 'complete') && AppState.current !== 'done') PeerNet.showDone();
+      else if (!Transfer.queue.every(q => q.status === 'complete') && AppState.current === 'transfer') {
+        showError('Lost','Peer disconnected before completion.', { canRetry: true });
+      }
+    });
 
-        document.addEventListener('DOMContentLoaded', App.init);
-    </script>
+    conn.on('error', (err) => showError('Channel error', err.message || 'Data channel failed.'));
+
+    // Controls
+    const pauseBtn = DOM.get('pause-btn');
+    const pauseText = DOM.get('pause-btn-text');
+    const pauseIcon = DOM.get('pause-icon');
+    pauseBtn.addEventListener('click', () => {
+      Transfer.isPaused = !Transfer.isPaused;
+      pauseBtn.setAttribute('aria-pressed', String(Transfer.isPaused));
+      pauseText.textContent = Transfer.isPaused ? 'Resume' : 'Pause';
+      pauseIcon.className = Transfer.isPaused ? 'ph ph-play text-base' : 'ph ph-pause text-base';
+      Toast.show(Transfer.isPaused ? 'Paused' : 'Resumed', 'info');
+    });
+
+    DOM.get('break-btn').addEventListener('click', () => {
+      if (confirm('Break connection to test recovery?')) {
+        conn.close();
+        this.peer.destroy();
+        showError('Broken','Connection severed manually.', { canRetry: false });
+      }
+    });
+
+    DOM.get('cancel-transfer-btn').addEventListener('click', () => {
+      if (confirm('Cancel all transfers?')) {
+        Transfer.isCancelled = true;
+        conn.send({ type:'cancel' });
+        setTimeout(() => { conn.close(); showError('Cancelled','Transfer cancelled.'); }, 300);
+      }
+    });
+  },
+
+  sendNextFile(conn) {
+    const pending = Transfer.queue.find(q => q.status === 'pending');
+    if (pending) this.sendFileHeader(pending, conn);
+  },
+
+  sendFileHeader(fileItem, conn) {
+    fileItem.status = 'active';
+    Transfer.currentIndex = Transfer.queue.indexOf(fileItem);
+    Transfer.renderQueue();
+    const hdr = { type:'file-header', id:fileItem.id, name:fileItem.name, size:fileItem.size, filetype:fileItem.type };
+    conn.send(hdr);
+  },
+
+  sendChunks(fileItem, conn) {
+    const file = fileItem.file;
+    let offset = 0, seq = 0;
+    const sendNext = () => {
+      if (!conn || conn.open === false || Transfer.isCancelled) {
+        if (!Transfer.isCancelled && conn && conn.open === false)
+          showError('Lost','Peer disconnected during transfer.', { canRetry: true });
+        return;
+      }
+      if (Transfer.isPaused) { setTimeout(sendNext, 400); return; }
+      if (offset >= file.size) { conn.send({ type:'file-done', id:fileItem.id }); return; }
+
+      const slice = file.slice(offset, Math.min(offset + CONFIG.CHUNK_SIZE, file.size));
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const buffer = e.target.result;
+        let payload = buffer;
+        let encrypted = false;
+        let checksum = null;
+        if (this.encryptionKey && this.securityMode !== 'none') {
+          payload = Crypto.xor(buffer, this.encryptionKey);
+          encrypted = true;
+        }
+        if (this.securityMode === 'paranoid') checksum = Crypto.checksum(payload);
+        const msg = { type:'chunk', id:fileItem.id, seq, data:payload, encrypted };
+        if (checksum) msg.checksum = checksum;
+        conn.send(msg);
+        offset += buffer.byteLength;
+        seq++;
+        fileItem.sent = offset;
+        Transfer.stats.bytesSinceUpdate += buffer.byteLength;
+        Transfer.stats.chunks++;
+        DOM.get('chunk-display').textContent = Transfer.stats.chunks;
+        Transfer.updateMasterProgress();
+        Transfer.renderQueue();
+        DOM.get('rtt-display').textContent = Math.floor(Math.random() * 35 + 10);
+        setTimeout(sendNext, this.throttleMs > 0 ? this.throttleMs : 0);
+      };
+      reader.onerror = () => Toast.show('File read error','error');
+      reader.readAsArrayBuffer(slice);
+    };
+    sendNext();
+  },
+
+  showDone() {
+    const duration = Transfer.stats.startTime ? Date.now() - Transfer.stats.startTime : 0;
+    const avgSpeed = Transfer.stats.totalBytes > 0 && duration > 0
+      ? (Transfer.stats.totalBytes / duration * 1000 / 1048576).toFixed(1) + ' MB/s' : '—';
+
+    // Inline summary
+    DOM.get('done-summary-inline').textContent =
+      `${Transfer.queue.length} file${Transfer.queue.length!==1?'s':''} · ${formatBytes(Transfer.stats.totalBytes)} · ${formatDuration(duration)}`;
+
+    // Detailed stats (inside <details>)
+    const summary = DOM.get('done-summary');
+    DOM.clear(summary);
+    const statsItems = [
+      ['Files', String(Transfer.queue.length)],
+      ['Total size', formatBytes(Transfer.stats.totalBytes)],
+      ['Duration', formatDuration(duration)],
+      ['Avg speed', avgSpeed],
+      ['Chunks', String(Transfer.stats.chunks)],
+      ['Retries', String(Transfer.stats.retries)],
+    ];
+    statsItems.forEach(([k,v]) => {
+      summary.appendChild(DOM.create('div','flex justify-between px-4 py-2 border-b border-white/[0.04] last:border-0',{role:'row'},[
+        DOM.create('span','text-xs text-slate-500',{text:k}),
+        DOM.create('span','text-xs text-slate-300 font-medium',{text:v}),
+      ]));
+    });
+
+    // Download list
+    const filesContainer = DOM.get('done-files-container');
+    const filesList = DOM.get('done-file-list');
+    DOM.clear(filesList);
+
+    if (this.isReceiver && Transfer.queue.some(q => q.buffers?.length)) {
+      DOM.show(filesContainer);
+      Transfer.queue.forEach(q => {
+        if (!q.buffers?.length) return;
+        const blob = new Blob(q.buffers, { type: q.type });
+        const url = URL.createObjectURL(blob);
+        q.downloadUrl = url;
+        const iconEl = DOM.create('div','bg-surface/60 p-2 rounded-xl text-slate-500 shrink-0');
+        iconEl.appendChild(mkIcon(phosphorIcon(fileIconName(q.name)),'text-base'));
+        const dlBtn = DOM.create('a','bg-brand hover:bg-brand/85 text-bg text-xs font-semibold px-3 py-1.5 rounded-xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60',{href:url, download:q.name, text:'Save'});
+        const row = DOM.create('div','flex items-center gap-3 px-3.5 py-2.5',{role:'listitem'},[
+          iconEl,
+          DOM.create('div','flex-1 min-w-0',[],[
+            DOM.create('p','text-sm font-medium text-slate-200 truncate',{text:q.name}),
+            DOM.create('p','text-[11px] text-slate-600',{text:formatBytes(q.size)}),
+          ]),
+          dlBtn,
+        ]);
+        filesList.appendChild(row);
+
+        if (Settings.autoDownload) {
+          setTimeout(() => {
+            const a = document.createElement('a');
+            a.href = url; a.download = q.name;
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+          }, 300);
+        }
+      });
+
+      if (Transfer.queue.filter(q => q.downloadUrl).length > 1) {
+        const dlAll = DOM.create('button','w-full px-4 py-2.5 text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-white/[0.03] transition-colors border-t border-white/[0.04] text-left flex items-center gap-2',{});
+        dlAll.appendChild(mkIcon('download-simple','text-sm'));
+        dlAll.appendChild(DOM.create('span','',{text:'Download all'}));
+        dlAll.addEventListener('click', () => {
+          Transfer.queue.forEach((q, i) => {
+            if (!q.downloadUrl) return;
+            setTimeout(() => {
+              const a = document.createElement('a');
+              a.href = q.downloadUrl; a.download = q.name;
+              a.style.display = 'none';
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+            }, i * 200);
+          });
+        });
+        filesList.appendChild(dlAll);
+      }
+    } else {
+      DOM.hide(filesContainer);
+    }
+
+    AppState.go('done');
+  },
+};
+
+// ============================================================
+// APP
+// ============================================================
+const App = {
+  reset() { window.location.href = window.location.pathname; },
+
+  init() {
+    if (!window.isSecureContext) {
+      alert('DropZone requires HTTPS or localhost.');
+      return;
+    }
+
+    AppState.init();
+    Settings.init();
+
+    // Logo/reset
+    DOM.get('logo-btn').addEventListener('click', () => App.reset());
+
+    // Done & error reset buttons
+    DOM.get('done-reset-btn').addEventListener('click', () => App.reset());
+    DOM.get('error-reset-btn').addEventListener('click', () => App.reset());
+
+    // Warn on leaving during transfer
+    window.addEventListener('beforeunload', (e) => {
+      if (AppState.current === 'transfer' || AppState.current === 'share') {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    });
+
+    PeerNet.init();
+  }
+};
+
+document.addEventListener('DOMContentLoaded', () => App.init());
+</script>
 </body>
 </html>
