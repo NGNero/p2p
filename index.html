@@ -3,21 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Peer-to-peer file transfer">
+    <meta name="description" content="Secure peer-to-peer file transfer">
     <title>DropZone — P2P Transfer</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:opsz,wght@8..144,100..1000&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css">
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
             theme: {
                 extend: {
-                    fontFamily: {
-                        sans: ['Geist', 'system-ui', 'sans-serif'],
-                    },
                     colors: {
                         brand: '#a8c7fa',
                         bg: '#0e0e0f',
@@ -26,9 +24,14 @@
                         danger: '#f87171',
                         warning: '#fbbf24',
                     },
+                    fontFamily: {
+                        sans: ['"Google Sans Flex"', 'system-ui', 'sans-serif'],
+                    },
                     animation: {
                         'fade-in': 'fadeIn 0.25s ease-out forwards',
                         'fade-out': 'fadeOut 0.2s ease-in forwards',
+                        'slide-up': 'slideUp 0.35s ease-out forwards',
+                        'pulse-slow': 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
                     },
                     keyframes: {
                         fadeIn: {
@@ -37,8 +40,12 @@
                         },
                         fadeOut: {
                             '0%': { opacity: '1', transform: 'translateY(0)' },
-                            '100%': { opacity: '0', transform: 'translateY(-8px)' },
+                            '100%': { opacity: '0', transform: 'translateY(-6px)' },
                         },
+                        slideUp: {
+                            '0%': { opacity: '0', transform: 'translateY(16px) scale(0.96)' },
+                            '100%': { opacity: '1', transform: 'translateY(0) scale(1)' },
+                        }
                     }
                 }
             }
@@ -47,34 +54,43 @@
 
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+
+    <style>
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 24px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
+    </style>
 <base target="_blank">
 </head>
-<body class="bg-bg text-slate-100 min-h-screen w-full flex flex-col font-sans antialiased selection:bg-brand selection:text-bg">
+<body class="bg-bg text-slate-100 font-sans antialiased min-h-screen flex flex-col selection:bg-brand selection:text-bg">
 
     <!-- Toast Container -->
-    <div id="toast-container" class="fixed top-20 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-3 pointer-events-none w-full max-w-sm px-4" role="region" aria-label="Notifications"></div>
+    <div id="toast-container" class="fixed top-20 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-2 pointer-events-none w-full max-w-sm px-4"></div>
 
     <!-- Navbar -->
-    <nav class="w-full px-6 py-4 flex justify-between items-center bg-surface/80 backdrop-blur-md fixed top-0 z-40">
-        <div class="flex items-center gap-3 cursor-pointer" onclick="App.reset()">
-            <div class="bg-brand/10 p-2 rounded-3xl text-brand">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-                </svg>
+    <nav class="fixed top-0 left-0 right-0 z-40 bg-bg px-5 py-3.5 flex items-center justify-between">
+        <div class="flex items-center gap-2.5 cursor-pointer" onclick="App.reset()">
+            <div class="bg-brand/10 text-brand p-2 rounded-3xl">
+                <i class="ph ph-lightning text-xl"></i>
             </div>
-            <span class="text-xl font-bold tracking-tight">DropZone</span>
+            <span class="text-lg font-bold tracking-tight">DropZone</span>
         </div>
         <div class="flex items-center gap-3">
-            <button id="settings-toggle" class="bg-bg p-2 rounded-3xl text-slate-400 hover:text-white hover:bg-white/5 transition-colors focus:outline-none focus:ring-2 focus:ring-brand/50" aria-label="Open settings" aria-expanded="false" aria-haspopup="dialog" aria-controls="settings-panel">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                </svg>
+            <button id="settings-toggle" class="p-2 rounded-3xl hover:bg-surface transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50" aria-label="Open settings" aria-expanded="false">
+                <i class="ph ph-gear text-lg text-slate-300"></i>
             </button>
-            <div class="flex items-center gap-2 text-sm font-medium text-slate-400 bg-bg px-3 py-1.5 rounded-3xl">
-                <span class="relative flex h-2.5 w-2.5">
-                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-slate-500 opacity-75"></span>
-                    <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-slate-500" id="status-dot"></span>
+            <div class="flex items-center gap-2 text-sm text-slate-400">
+                <span class="relative flex h-2 w-2">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-slate-500 opacity-75" id="status-ping"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-slate-500" id="status-dot"></span>
                 </span>
                 <span id="status-text">Initializing</span>
             </div>
@@ -82,194 +98,233 @@
     </nav>
 
     <!-- Settings Popover -->
-    <div id="settings-backdrop" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 hidden" onclick="Settings.close()"></div>
-    <div id="settings-panel" class="fixed right-4 top-16 w-80 bg-surface p-6 rounded-3xl shadow-2xl z-50 hidden flex flex-col gap-5" role="dialog" aria-modal="true" aria-labelledby="settings-title">
-        <div class="flex justify-between items-center">
-            <h3 id="settings-title" class="text-lg font-bold text-white">Settings</h3>
-            <button onclick="Settings.close()" class="text-slate-400 hover:text-white p-1 rounded-3xl transition-colors focus:outline-none focus:ring-2 focus:ring-brand/50" aria-label="Close settings">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+    <div id="settings-popover" class="hidden fixed top-14 right-4 w-80 bg-bg rounded-3xl shadow-2xl shadow-black/60 p-5 z-50 animate-slide-up">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-sm font-bold text-white">Settings</h3>
+            <button onclick="Settings.close()" class="p-1.5 hover:bg-surface rounded-3xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50" aria-label="Close settings">
+                <i class="ph ph-x text-slate-400"></i>
             </button>
         </div>
-        <div class="flex flex-col gap-2">
-            <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Transfer Speed</label>
-            <select id="throttle-select" class="bg-bg p-3 rounded-3xl text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-brand/50 cursor-pointer">
-                <option value="0">Unlimited</option>
-                <option value="50" selected>Slow</option>
-                <option value="200">Very Slow</option>
-                <option value="500">Glacial</option>
-            </select>
-            <p class="text-xs text-slate-500 leading-relaxed" id="speed-desc">Adds a 50ms delay between chunks. Easier to pause or interrupt mid-transfer.</p>
-        </div>
-        <div class="flex flex-col gap-2">
-            <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Security Mode</label>
-            <select id="security-select" class="bg-bg p-3 rounded-3xl text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-brand/50 cursor-pointer">
-                <option value="none">Standard</option>
-                <option value="encrypt" selected>Scrambled</option>
-                <option value="paranoid">Verified</option>
-            </select>
-            <p class="text-xs text-slate-500 leading-relaxed" id="security-desc">XOR obfuscation with a random key. Deters casual interception, but is not encryption.</p>
+        <div class="space-y-4">
+            <div>
+                <label class="text-xs text-slate-400 block mb-2">Transfer Speed</label>
+                <div class="relative">
+                    <select id="throttle-select" class="w-full bg-surface rounded-3xl px-4 py-3 text-sm text-slate-200 appearance-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 cursor-pointer">
+                        <option value="0">Unlimited</option>
+                        <option value="50" selected>Slow — test recovery</option>
+                        <option value="200">Very Slow</option>
+                        <option value="500">Glacial</option>
+                    </select>
+                    <i class="ph ph-caret-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"></i>
+                </div>
+                <p class="text-[11px] text-slate-500 mt-1.5 leading-relaxed">Slower speeds let you pause or break the connection mid-transfer.</p>
+            </div>
+            <div>
+                <label class="text-xs text-slate-400 block mb-2">Security</label>
+                <div class="relative">
+                    <select id="security-select" class="w-full bg-surface rounded-3xl px-4 py-3 text-sm text-slate-200 appearance-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 cursor-pointer">
+                        <option value="none">Standard</option>
+                        <option value="encrypt" selected>Encrypted</option>
+                        <option value="paranoid">Paranoid + Verify</option>
+                    </select>
+                    <i class="ph ph-caret-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"></i>
+                </div>
+                <p class="text-[11px] text-slate-500 mt-1.5 leading-relaxed">Paranoid mode checksums every chunk. Encryption key lives in the URL hash.</p>
+            </div>
         </div>
     </div>
 
     <!-- Main Content -->
-    <main class="flex-1 w-full pt-24 pb-12 flex flex-col items-center p-4 md:p-8 gap-8">
+    <main class="flex-1 w-full overflow-y-auto pt-16 pb-8 px-4 md:px-8 flex flex-col items-center justify-center relative">
 
         <!-- STATE: UPLOAD -->
-        <div id="state-upload" class="w-full max-w-2xl flex flex-col gap-6 hidden">
-            <div class="text-center">
-                <h1 class="text-4xl md:text-5xl font-black tracking-tight text-white">Direct P2P Transfer</h1>
-                <p class="text-slate-400 mt-2">Select files to generate a share link. No server upload.</p>
+        <div id="state-upload" class="w-full max-w-xl flex flex-col gap-5 hidden">
+            <div class="text-center mb-1">
+                <h1 class="text-4xl md:text-5xl font-black tracking-tighter text-white">Direct P2P Transfer</h1>
+                <p class="text-slate-400 mt-2">Send files directly. No cloud. No accounts.</p>
             </div>
 
-            <label id="dropzone" class="bg-surface p-12 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:bg-white/[0.03] transition-colors gap-4 min-h-[240px] focus-within:ring-2 focus-within:ring-brand/50" aria-label="File upload dropzone">
-                <div class="bg-bg p-5 rounded-3xl text-slate-400">
-                    <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
-                    </svg>
+            <label id="dropzone" class="bg-surface rounded-3xl flex flex-col items-center justify-center cursor-pointer transition-all duration-300 hover:bg-surface/70 min-h-[220px] group">
+                <div class="bg-bg p-4 rounded-3xl mb-3 group-hover:scale-110 transition-transform duration-300 text-slate-400 group-hover:text-brand">
+                    <i class="ph ph-upload-simple text-3xl"></i>
                 </div>
-                <div class="text-center">
-                    <p class="text-lg font-semibold text-slate-200">Click or drop files here</p>
-                    <p class="text-sm text-slate-500 mt-1">Up to 50 files, 2GB each</p>
-                </div>
+                <span class="text-lg font-semibold text-slate-200 group-hover:text-white transition-colors">Drop files or click to browse</span>
+                <span class="text-slate-500 mt-1 text-sm">Up to 50 files</span>
                 <input type="file" id="file-input" class="hidden" multiple>
             </label>
 
-            <div id="file-list-container" class="hidden flex flex-col gap-3">
-                <div class="flex justify-between items-center px-2">
+            <div id="file-list-container" class="hidden bg-surface rounded-3xl overflow-hidden">
+                <div class="px-5 py-3 flex justify-between items-center">
                     <span class="text-sm font-medium text-slate-300" id="file-count-label">0 files</span>
-                    <button id="clear-files-btn" class="text-xs text-danger hover:text-red-400 font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-danger/50 rounded-3xl px-2 py-1">Remove all</button>
+                    <button id="clear-files-btn" class="text-xs text-danger hover:text-red-400 font-medium transition-colors p-2 rounded-3xl hover:bg-danger/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50" aria-label="Remove all files">
+                        <i class="ph ph-trash text-sm"></i>
+                    </button>
                 </div>
-                <div id="file-list" class="flex flex-col gap-2 max-h-60 overflow-y-auto"></div>
-                <div class="flex justify-between items-center px-2 pt-2">
-                    <span class="text-xs text-slate-500" id="total-size-label">Total: 0 B</span>
-                    <button id="confirm-files-btn" class="bg-brand hover:bg-brand/90 text-bg font-bold px-6 py-3 rounded-3xl text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-brand/50">Generate Link</button>
+                <div id="file-list" class="max-h-52 overflow-y-auto px-2 pb-1"></div>
+                <div class="px-5 py-3 flex justify-between items-center">
+                    <span class="text-xs text-slate-500" id="total-size-label">0 MB</span>
+                    <button id="confirm-files-btn" class="bg-brand hover:bg-brand/90 text-bg font-bold px-5 py-2.5 rounded-3xl text-sm transition-all shadow-lg shadow-brand/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
+                        Prepare
+                    </button>
                 </div>
             </div>
         </div>
 
         <!-- STATE: SHARE -->
-        <div id="state-share" class="hidden w-full max-w-md flex flex-col items-center text-center bg-surface p-8 rounded-3xl gap-6">
+        <div id="state-share" class="hidden w-full max-w-md flex flex-col items-center text-center bg-surface p-6 md:p-8 rounded-3xl gap-5">
             <div>
-                <h2 class="text-2xl font-bold text-white">Ready to share</h2>
-                <p class="text-sm text-slate-400 mt-1">Scan the code or copy the link.</p>
+                <h2 class="text-2xl font-bold text-white">Ready</h2>
+                <p class="text-sm text-slate-400 mt-1">Scan or share the link. Keep this open.</p>
             </div>
-            <div class="bg-white p-5 rounded-3xl shadow-xl">
-                <canvas id="qrcode" class="w-52 h-52 rounded-3xl"></canvas>
+
+            <div class="bg-white p-3 rounded-3xl shadow-2xl">
+                <canvas id="qrcode" class="w-48 h-48 rounded-2xl"></canvas>
             </div>
-            <div class="flex gap-3 w-full">
-                <button id="copy-link-btn" class="flex-1 flex items-center justify-center gap-2 bg-bg hover:bg-white/5 text-slate-200 py-3 rounded-3xl font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-brand/50">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+
+            <div class="w-full flex gap-2">
+                <button id="copy-link-btn" class="flex-1 flex items-center justify-center gap-2 bg-bg hover:bg-white/5 text-slate-200 py-3 rounded-3xl font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
+                    <i class="ph ph-copy text-lg"></i>
                     Copy Link
                 </button>
-                <button id="copy-key-btn" class="flex-1 flex items-center justify-center gap-2 bg-bg hover:bg-white/5 text-slate-200 py-3 rounded-3xl font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-brand/50">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                <button id="copy-key-btn" class="flex-1 flex items-center justify-center gap-2 bg-bg hover:bg-white/5 text-slate-200 py-3 rounded-3xl font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
+                    <i class="ph ph-key text-lg"></i>
                     Copy Key
                 </button>
             </div>
-            <div class="w-full bg-bg rounded-3xl overflow-hidden">
-                <div class="px-5 py-4">
-                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Files</p>
-                    <div id="share-file-list" class="flex flex-col gap-2 max-h-40 overflow-y-auto"></div>
-                </div>
+
+            <div class="w-full bg-bg rounded-3xl overflow-hidden text-left">
+                <div class="px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">Files</div>
+                <div id="share-file-list" class="max-h-36 overflow-y-auto divide-y divide-white/5 px-2 pb-1"></div>
             </div>
-            <div class="w-full bg-bg rounded-3xl p-4 flex items-center gap-3 text-left">
-                <div class="bg-brand/10 p-2 rounded-3xl text-brand shrink-0">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+
+            <div class="w-full flex items-center justify-between bg-bg rounded-3xl p-3">
+                <div class="flex items-center gap-2.5">
+                    <div class="bg-brand/10 p-1.5 rounded-3xl text-brand">
+                        <i class="ph ph-shield-check text-lg"></i>
+                    </div>
+                    <div class="text-left">
+                        <p class="text-sm font-medium text-slate-200">Encrypted</p>
+                        <p class="text-xs text-slate-500" id="security-badge-text">XOR stream + URL hash</p>
+                    </div>
                 </div>
-                <div class="min-w-0">
-                    <p class="text-sm font-medium text-slate-200" id="security-badge-title">Scrambled transfer</p>
-                    <p class="text-xs text-slate-500 truncate" id="security-badge-text">XOR obfuscation via URL hash</p>
-                </div>
+                <span class="flex items-center gap-1.5 text-brand font-bold text-xs bg-brand/10 px-3 py-1.5 rounded-full animate-pulse">
+                    <i class="ph ph-spinner animate-spin text-xs"></i>
+                    Waiting
+                </span>
             </div>
-            <p class="text-xs text-slate-500">Keep this tab open until the transfer completes.</p>
         </div>
 
         <!-- STATE: TRANSFER -->
-        <div id="state-transfer" class="hidden w-full max-w-2xl flex flex-col bg-surface p-8 rounded-3xl gap-6">
+        <div id="state-transfer" class="hidden w-full max-w-2xl flex flex-col bg-surface p-6 md:p-8 rounded-3xl gap-5">
             <div class="flex justify-between items-end">
-                <div class="min-w-0">
-                    <h2 id="transfer-status" class="text-2xl font-black text-white truncate">Connecting...</h2>
-                    <p id="transfer-filename" class="text-sm text-slate-400 mt-1 truncate">Establishing peer connection</p>
+                <div>
+                    <h2 id="transfer-status" class="text-2xl md:text-3xl font-black text-white">Initializing</h2>
+                    <p id="transfer-subtitle" class="text-slate-400 text-sm mt-1">Establishing channel</p>
                 </div>
-                <div class="text-right shrink-0 ml-4">
-                    <p id="transfer-speed" class="text-xl font-bold text-brand">--</p>
-                    <p id="transfer-eta" class="text-xs text-slate-500">--</p>
-                </div>
-            </div>
-            <div class="w-full bg-bg rounded-3xl h-4 overflow-hidden">
-                <div id="master-progress" class="bg-brand h-full rounded-3xl transition-all duration-300 relative" style="width: 0%">
-                    <div class="absolute inset-0 bg-white/20 animate-pulse rounded-3xl"></div>
+                <div class="text-right">
+                    <p id="transfer-speed" class="text-lg font-bold text-brand">--</p>
+                    <p id="transfer-eta" class="text-slate-500 text-xs">Calculating</p>
                 </div>
             </div>
-            <div class="flex justify-between text-xs text-slate-400 font-medium">
+
+            <div class="w-full bg-bg rounded-3xl h-3 overflow-hidden relative">
+                <div id="master-progress" class="bg-brand h-full w-0 transition-all duration-300 relative">
+                    <div class="absolute inset-0 bg-white/20 animate-pulse"></div>
+                </div>
+            </div>
+            <div class="flex justify-between w-full text-slate-400 text-xs -mt-2">
                 <span id="master-percent">0%</span>
-                <span id="master-bytes">0 B / 0 B</span>
+                <span id="master-bytes">0 / 0</span>
             </div>
+
             <div class="bg-bg rounded-3xl overflow-hidden">
-                <div class="px-5 py-3 flex justify-between items-center">
+                <div class="px-4 py-2 flex justify-between items-center">
                     <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Queue</span>
                     <span id="queue-status" class="text-xs text-slate-400">0 / 0</span>
                 </div>
-                <div id="transfer-queue" class="flex flex-col gap-2 max-h-56 overflow-y-auto px-5 pb-4"></div>
+                <div id="transfer-queue" class="max-h-56 overflow-y-auto divide-y divide-white/5 px-2 pb-1"></div>
             </div>
-            <div class="flex flex-wrap gap-3 justify-center">
-                <button id="pause-btn" class="flex items-center gap-2 bg-bg hover:bg-white/5 text-slate-200 px-5 py-3 rounded-3xl font-medium transition-colors text-sm focus:outline-none focus:ring-2 focus:ring-brand/50">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+
+            <div class="flex flex-wrap gap-2 justify-center">
+                <button id="pause-btn" class="flex items-center gap-2 bg-bg hover:bg-white/5 text-slate-200 px-4 py-2.5 rounded-3xl font-medium transition-colors text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
+                    <i class="ph ph-pause text-base" id="pause-icon"></i>
                     <span id="pause-btn-text">Pause</span>
                 </button>
-                <button id="break-btn" class="flex items-center gap-2 bg-danger/10 hover:bg-danger/20 text-danger px-5 py-3 rounded-3xl font-bold transition-colors text-sm focus:outline-none focus:ring-2 focus:ring-danger/50">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                <button id="break-btn" class="flex items-center gap-2 bg-danger/10 hover:bg-danger/20 text-danger px-4 py-2.5 rounded-3xl font-bold transition-colors text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50">
+                    <i class="ph ph-lightning-slash text-base"></i>
                     Break
                 </button>
-                <button id="cancel-transfer-btn" class="flex items-center gap-2 text-slate-400 hover:text-danger hover:bg-danger/10 px-5 py-3 rounded-3xl font-bold transition-colors text-sm focus:outline-none focus:ring-2 focus:ring-danger/50">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                <button id="cancel-transfer-btn" class="flex items-center gap-2 text-slate-400 hover:text-danger hover:bg-danger/10 px-4 py-2.5 rounded-3xl font-bold transition-colors text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50">
+                    <i class="ph ph-x text-base"></i>
                     Cancel
                 </button>
             </div>
-            <div class="flex items-center gap-6 text-xs text-slate-500 justify-center">
-                <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-brand"></span> RTT <span id="rtt-display">--</span>ms</span>
-                <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-warning"></span> Retries <span id="retry-display">0</span></span>
-                <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-success"></span> Chunks <span id="chunk-display">0</span></span>
+
+            <div class="flex items-center gap-5 text-xs text-slate-500 justify-center">
+                <span class="flex items-center gap-1.5">
+                    <span class="w-1.5 h-1.5 rounded-full bg-brand animate-pulse"></span>
+                    RTT <span id="rtt-display">--</span>ms
+                </span>
+                <span class="flex items-center gap-1.5">
+                    <span class="w-1.5 h-1.5 rounded-full bg-warning animate-pulse"></span>
+                    Retries <span id="retry-display">0</span>
+                </span>
+                <span class="flex items-center gap-1.5">
+                    <span class="w-1.5 h-1.5 rounded-full bg-success animate-pulse"></span>
+                    Chunks <span id="chunk-display">0</span>
+                </span>
             </div>
         </div>
 
         <!-- STATE: DONE -->
-        <div id="state-done" class="hidden w-full max-w-md flex flex-col items-center text-center bg-surface p-10 rounded-3xl gap-6">
-            <div class="bg-success/10 text-success p-5 rounded-3xl">
-                <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+        <div id="state-done" class="hidden w-full max-w-lg flex flex-col items-center text-center bg-surface p-6 md:p-8 rounded-3xl gap-5">
+            <div class="bg-success/10 text-success p-4 rounded-3xl">
+                <i class="ph ph-check-circle text-4xl"></i>
             </div>
             <div>
-                <h2 class="text-3xl font-black text-white">Done</h2>
-                <p class="text-slate-400 mt-1">All files transferred.</p>
+                <h2 class="text-3xl font-black text-white">Complete</h2>
+                <p class="text-slate-400 mt-1">Transfer finished successfully.</p>
             </div>
+
             <div class="w-full bg-bg rounded-3xl overflow-hidden text-left">
-                <div class="px-5 py-4">
-                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Summary</p>
-                    <div id="done-summary" class="flex flex-col gap-2"></div>
-                </div>
+                <div class="px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">Summary</div>
+                <div id="done-summary" class="p-4 space-y-2"></div>
             </div>
+
+            <div id="done-files-container" class="hidden w-full bg-bg rounded-3xl overflow-hidden text-left">
+                <div class="px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">Files</div>
+                <div id="done-file-list" class="max-h-48 overflow-y-auto divide-y divide-white/5 px-2 pb-2"></div>
+            </div>
+
             <div class="flex gap-3 w-full">
-                <button onclick="App.reset()" class="flex-1 bg-brand hover:bg-brand/90 text-bg px-6 py-3 rounded-3xl font-bold transition-colors focus:outline-none focus:ring-2 focus:ring-brand/50">Send More</button>
-                <button id="download-again-btn" class="flex-1 bg-bg hover:bg-white/5 text-white px-6 py-3 rounded-3xl font-bold transition-colors focus:outline-none focus:ring-2 focus:ring-brand/50 hidden">Download Again</button>
+                <button onclick="App.reset()" class="flex-1 bg-brand hover:bg-brand/90 text-bg px-5 py-3 rounded-3xl font-bold transition-all shadow-lg shadow-brand/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
+                    Send More
+                </button>
             </div>
         </div>
 
         <!-- STATE: ERROR -->
-        <div id="state-error" class="hidden w-full max-w-md flex flex-col items-center text-center bg-surface p-10 rounded-3xl gap-6">
-            <div class="bg-danger/10 text-danger p-5 rounded-3xl">
-                <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+        <div id="state-error" class="hidden w-full max-w-lg flex flex-col items-center text-center bg-surface p-6 md:p-8 rounded-3xl gap-5">
+            <div class="bg-danger/10 text-danger p-4 rounded-3xl">
+                <i class="ph ph-warning-circle text-4xl"></i>
             </div>
             <div>
-                <h2 class="text-3xl font-black text-white" id="error-title">Connection Failed</h2>
-                <p class="text-slate-400 mt-1" id="error-message">The transfer was interrupted.</p>
+                <h2 class="text-3xl font-black text-white" id="error-title">Failed</h2>
+                <p class="text-slate-400 mt-1" id="error-message">Connection lost.</p>
             </div>
-            <div class="w-full bg-bg rounded-3xl p-5 text-left">
-                <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Diagnostics</p>
-                <div id="error-diagnostics" class="flex flex-col gap-1 text-sm text-slate-400 font-mono"></div>
+
+            <div class="w-full bg-bg rounded-3xl p-4 text-left">
+                <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Details</p>
+                <div id="error-diagnostics" class="space-y-1 text-sm text-slate-400 font-mono"></div>
             </div>
+
             <div class="flex gap-3 w-full">
-                <button onclick="App.reset()" class="flex-1 bg-brand hover:bg-brand/90 text-bg px-6 py-3 rounded-3xl font-bold transition-colors focus:outline-none focus:ring-2 focus:ring-brand/50">Start Over</button>
-                <button id="retry-btn" class="flex-1 bg-bg hover:bg-white/5 text-white px-6 py-3 rounded-3xl font-bold transition-colors focus:outline-none focus:ring-2 focus:ring-brand/50 hidden">Retry</button>
+                <button onclick="App.reset()" class="flex-1 bg-brand hover:bg-brand/90 text-bg px-5 py-3 rounded-3xl font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
+                    Start Over
+                </button>
+                <button id="retry-btn" class="flex-1 bg-bg hover:bg-white/5 text-white px-5 py-3 rounded-3xl font-bold transition-colors hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
+                    Retry
+                </button>
             </div>
         </div>
 
@@ -285,12 +340,10 @@
             MAX_TOTAL_SIZE: 5 * 1024 * 1024 * 1024,
             CHUNK_SIZE: 32 * 1024,
             CONNECT_TIMEOUT: 30000,
+            MAX_RETRIES: 5,
             FILENAME_MAX_LENGTH: 255,
             BLOCKED_EXTENSIONS: ['.exe', '.dll', '.bat', '.cmd', '.sh', '.msi', '.app', '.dmg', '.pkg', '.deb', '.rpm'],
         };
-
-        const SAFE_REGEX = /[^a-zA-Z0-9._\-() [\]]/g;
-        const PATH_TRAVERSAL_REGEX = /(\.\.)|^[\/\\]|^~/;
 
         // ============================================================
         // DOM UTILITIES — NO innerHTML
@@ -316,74 +369,11 @@
             hide: (el) => el.classList.add('hidden'),
         };
 
-        // ============================================================
-        // CRYPTO
-        // ============================================================
-        const Crypto = {
-            generateKey: () => {
-                const arr = new Uint8Array(32);
-                crypto.getRandomValues(arr);
-                return btoa(String.fromCharCode(...arr)).replace(/[+/=]/g, '').slice(0, 32);
-            },
-            xor: (buffer, key) => {
-                if (!key) return buffer;
-                const view = new Uint8Array(buffer);
-                const keyBytes = new TextEncoder().encode(key);
-                const out = new Uint8Array(view.length);
-                for (let i = 0; i < view.length; i++) {
-                    out[i] = view[i] ^ keyBytes[i % keyBytes.length];
-                }
-                return out.buffer;
-            },
-            checksum: (buffer) => {
-                const view = new Uint8Array(buffer);
-                let hash = 0;
-                for (let i = 0; i < view.length; i++) {
-                    hash = ((hash << 5) - hash + view[i]) | 0;
-                }
-                return (hash >>> 0).toString(16).padStart(8, '0');
-            }
-        };
-
-        // ============================================================
-        // SAFETY
-        // ============================================================
-        const Safety = {
-            sanitizeFilename: (name) => {
-                if (!name || typeof name !== 'string') return 'unnamed_file';
-                if (PATH_TRAVERSAL_REGEX.test(name)) name = name.replace(PATH_TRAVERSAL_REGEX, '_');
-                name = name.replace(SAFE_REGEX, '_');
-                if (name.length > CONFIG.FILENAME_MAX_LENGTH) {
-                    const ext = name.lastIndexOf('.');
-                    if (ext > 0) {
-                        name = name.slice(0, CONFIG.FILENAME_MAX_LENGTH - (name.length - ext)) + name.slice(ext);
-                    } else {
-                        name = name.slice(0, CONFIG.FILENAME_MAX_LENGTH);
-                    }
-                }
-                if (!name.trim() || name === '.' || name === '..') name = 'unnamed_file';
-                return name;
-            },
-            validateFiles: (files) => {
-                const errors = [];
-                if (!files || files.length === 0) { errors.push('No files selected'); return errors; }
-                if (files.length > CONFIG.MAX_FILES) errors.push('Too many files (' + files.length + ' > ' + CONFIG.MAX_FILES + ')');
-                let totalSize = 0;
-                for (const file of files) {
-                    totalSize += file.size;
-                    if (file.size > CONFIG.MAX_FILE_SIZE) errors.push(file.name + ' is too large (' + formatBytes(file.size) + ')');
-                    const ext = '.' + (file.name.split('.').pop() || '').toLowerCase();
-                    if (CONFIG.BLOCKED_EXTENSIONS.includes(ext)) errors.push('Blocked type: ' + ext);
-                }
-                if (totalSize > CONFIG.MAX_TOTAL_SIZE) errors.push('Total size exceeds ' + formatBytes(CONFIG.MAX_TOTAL_SIZE));
-                return errors;
-            },
-            sanitizePeerId: (id) => {
-                if (!id || typeof id !== 'string') return null;
-                const clean = id.replace(/[^a-zA-Z0-9_-]/g, '');
-                return clean.length >= 10 && clean.length <= 64 ? clean : null;
-            }
-        };
+        function icon(name, classes) {
+            const i = document.createElement('i');
+            i.className = 'ph ph-' + name + ' ' + (classes || '');
+            return i;
+        }
 
         // ============================================================
         // FORMATTING
@@ -404,15 +394,15 @@
             return m + 'm ' + s + 's';
         }
 
-        function getFileIcon(filename) {
+        function getFileIconName(filename) {
             const ext = (filename.split('.').pop() || '').toLowerCase();
             const map = {
-                image: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp'],
-                video: ['mp4', 'webm', 'mov', 'avi', 'mkv'],
-                audio: ['mp3', 'wav', 'ogg', 'flac', 'aac'],
-                document: ['pdf', 'doc', 'docx', 'txt', 'rtf', 'odt'],
-                archive: ['zip', 'rar', '7z', 'tar', 'gz'],
-                code: ['js', 'html', 'css', 'py', 'java', 'cpp', 'c', 'go', 'rs', 'ts'],
+                image: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'],
+                video: ['mp4', 'webm', 'mov', 'avi', 'mkv', 'flv'],
+                audio: ['mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a', 'wma'],
+                document: ['pdf', 'doc', 'docx', 'txt', 'rtf', 'odt', 'xls', 'xlsx', 'ppt', 'pptx'],
+                archive: ['zip', 'rar', '7z', 'tar', 'gz', 'bz2'],
+                code: ['js', 'html', 'css', 'py', 'java', 'cpp', 'c', 'go', 'rs', 'ts', 'tsx', 'jsx', 'php', 'rb'],
             };
             for (const [type, exts] of Object.entries(map)) {
                 if (exts.includes(ext)) return type;
@@ -420,27 +410,93 @@
             return 'file';
         }
 
-        function getIconSvg(type) {
-            const icons = {
-                image: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z',
-                video: 'M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z',
-                audio: 'M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3',
-                document: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
-                archive: 'M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4',
-                code: 'M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4',
-                file: 'M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z',
-            };
-            return icons[type] || icons.file;
+        function getPhosphorIcon(type) {
+            const icons = { image: 'image', video: 'video', audio: 'headphones', document: 'file-text', archive: 'archive', code: 'code', file: 'file' };
+            return icons[type] || 'file';
         }
 
-        function renderIcon(parent, type) {
-            const svg = DOM.create('svg', 'w-4 h-4', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor' });
-            svg.appendChild(DOM.create('path', '', {
-                'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-width': '2',
-                d: getIconSvg(type)
-            }));
-            parent.appendChild(svg);
-        }
+        // ============================================================
+        // CRYPTO
+        // ============================================================
+        const Crypto = {
+            generateKey: () => {
+                const arr = new Uint8Array(32);
+                crypto.getRandomValues(arr);
+                return btoa(String.fromCharCode(...arr)).replace(/[+/=]/g, '').slice(0, 32);
+            },
+            encrypt: (buffer, key) => {
+                if (!key) return buffer;
+                const view = new Uint8Array(buffer);
+                const keyBytes = new TextEncoder().encode(key);
+                const out = new Uint8Array(view.length);
+                for (let i = 0; i < view.length; i++) {
+                    out[i] = view[i] ^ keyBytes[i % keyBytes.length];
+                }
+                return out.buffer;
+            },
+            decrypt: (buffer, key) => Crypto.encrypt(buffer, key),
+            checksum: (buffer) => {
+                const view = new Uint8Array(buffer);
+                let hash = 0;
+                for (let i = 0; i < view.length; i++) {
+                    hash = ((hash << 5) - hash + view[i]) | 0;
+                }
+                return (hash >>> 0).toString(16).padStart(8, '0');
+            }
+        };
+
+        // ============================================================
+        // SAFETY
+        // ============================================================
+        const Safety = {
+            sanitizeFilename: (name) => {
+                if (!name || typeof name !== 'string') return 'unnamed_file';
+                if (name.includes('..')) name = name.split('..').join('_');
+                if (name[0] === '/' || name[0] === '\\' || name[0] === '~') name = '_' + name.slice(1);
+
+                const allowed = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-() []';
+                let result = '';
+                for (let i = 0; i < name.length; i++) {
+                    result += allowed.includes(name[i]) ? name[i] : '_';
+                }
+
+                if (result.length > CONFIG.FILENAME_MAX_LENGTH) {
+                    const extIdx = result.lastIndexOf('.');
+                    if (extIdx > 0) {
+                        result = result.slice(0, CONFIG.FILENAME_MAX_LENGTH - (result.length - extIdx)) + result.slice(extIdx);
+                    } else {
+                        result = result.slice(0, CONFIG.FILENAME_MAX_LENGTH);
+                    }
+                }
+                if (!result.trim() || result === '.' || result === '..') result = 'unnamed_file';
+                return result;
+            },
+            validateFile: (file) => {
+                const errors = [];
+                if (!file || !(file instanceof File)) { errors.push('Invalid file'); return errors; }
+                if (file.size > CONFIG.MAX_FILE_SIZE) errors.push('File too large (' + formatBytes(file.size) + ')');
+                const ext = '.' + (file.name.split('.').pop() || '').toLowerCase();
+                if (CONFIG.BLOCKED_EXTENSIONS.includes(ext)) errors.push('Blocked type: ' + ext);
+                return errors;
+            },
+            validateFiles: (files) => {
+                const errors = [];
+                if (!files || files.length === 0) { errors.push('No files selected'); return errors; }
+                if (files.length > CONFIG.MAX_FILES) errors.push('Too many files (' + files.length + ')');
+                let totalSize = 0;
+                for (const file of files) {
+                    totalSize += file.size;
+                    errors.push(...Safety.validateFile(file));
+                }
+                if (totalSize > CONFIG.MAX_TOTAL_SIZE) errors.push('Total size exceeds limit');
+                return errors;
+            },
+            sanitizePeerId: (id) => {
+                if (!id || typeof id !== 'string') return null;
+                const clean = id.replace(/[^a-zA-Z0-9_-]/g, '');
+                return clean.length >= 10 && clean.length <= 64 ? clean : null;
+            }
+        };
 
         // ============================================================
         // TOAST
@@ -449,20 +505,20 @@
             container: DOM.get('toast-container'),
             show: (message, type) => {
                 type = type || 'info';
-                const map = {
-                    info: 'bg-surface shadow-xl shadow-black/40 text-slate-200',
-                    success: 'bg-surface shadow-xl shadow-black/40 text-success',
-                    error: 'bg-surface shadow-xl shadow-black/40 text-danger',
-                    warning: 'bg-surface shadow-xl shadow-black/40 text-warning',
+                const colors = {
+                    info: 'bg-surface text-slate-200',
+                    success: 'bg-surface text-success',
+                    error: 'bg-surface text-danger',
+                    warning: 'bg-surface text-warning',
                 };
-                const toast = DOM.create('div', 'pointer-events-auto px-5 py-3 rounded-3xl font-medium text-sm animate-fade-in flex items-center gap-2 ' + (map[type] || map.info), {
-                    role: 'status', 'aria-live': 'polite'
-                }, [DOM.create('span', '', { text: message })]);
+                const toast = DOM.create('div', 'pointer-events-auto px-4 py-2.5 rounded-3xl font-medium shadow-2xl shadow-black/50 text-sm animate-fade-in flex items-center gap-2 ' + (colors[type] || colors.info));
+                toast.appendChild(icon(type === 'success' ? 'check-circle' : type === 'error' ? 'warning-circle' : type === 'warning' ? 'warning' : 'info', 'text-base'));
+                toast.appendChild(DOM.create('span', '', { text: message }));
                 Toast.container.appendChild(toast);
                 setTimeout(() => {
                     toast.classList.remove('animate-fade-in');
                     toast.classList.add('animate-fade-out');
-                    setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 200);
+                    setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 250);
                 }, 3500);
             }
         };
@@ -486,7 +542,7 @@
                         setTimeout(() => {
                             el.classList.add('hidden');
                             el.classList.remove('animate-fade-out');
-                        }, 180);
+                        }, 200);
                     }
                 });
                 setTimeout(() => {
@@ -494,7 +550,7 @@
                     target.classList.remove('hidden', 'animate-fade-out');
                     target.classList.add('animate-fade-in');
                     State.current = name;
-                }, 220);
+                }, 250);
             }
         };
 
@@ -502,47 +558,26 @@
         // SETTINGS POPOVER
         // ============================================================
         const Settings = {
+            popover: DOM.get('settings-popover'),
+            toggle: DOM.get('settings-toggle'),
             open: () => {
-                DOM.show(DOM.get('settings-backdrop'));
-                DOM.show(DOM.get('settings-panel'));
-                DOM.get('settings-toggle').setAttribute('aria-expanded', 'true');
+                DOM.show(Settings.popover);
+                Settings.toggle.setAttribute('aria-expanded', 'true');
             },
             close: () => {
-                DOM.hide(DOM.get('settings-backdrop'));
-                DOM.hide(DOM.get('settings-panel'));
-                DOM.get('settings-toggle').setAttribute('aria-expanded', 'false');
+                DOM.hide(Settings.popover);
+                Settings.toggle.setAttribute('aria-expanded', 'false');
             },
             init: () => {
-                DOM.get('settings-toggle').addEventListener('click', () => {
-                    if (DOM.get('settings-panel').classList.contains('hidden')) Settings.open();
+                Settings.toggle.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (Settings.popover.classList.contains('hidden')) Settings.open();
                     else Settings.close();
                 });
-                document.addEventListener('keydown', (e) => {
-                    if (e.key === 'Escape') Settings.close();
-                });
-
-                const speedDescs = {
-                    0: 'No artificial delay. Uses maximum bandwidth.',
-                    50: 'Adds 50ms delay between chunks. Easier to pause or interrupt.',
-                    200: 'Adds 200ms delay. Good for testing resilience.',
-                    500: 'Adds 500ms delay. Maximum time to observe or abort.',
-                };
-                const securityDescs = {
-                    none: 'Standard WebRTC DataChannel. No extra obfuscation.',
-                    encrypt: 'XOR obfuscation with a random key. Deters casual interception, but is not encryption.',
-                    paranoid: 'XOR obfuscation plus per-chunk checksum. Detects corruption, but is not encryption.',
-                };
-
-                const throttleSelect = DOM.get('throttle-select');
-                const securitySelect = DOM.get('security-select');
-
-                throttleSelect.addEventListener('change', (e) => {
-                    PeerNet.throttleMs = parseInt(e.target.value);
-                    DOM.get('speed-desc').textContent = speedDescs[PeerNet.throttleMs] || '';
-                });
-                securitySelect.addEventListener('change', (e) => {
-                    PeerNet.securityMode = e.target.value;
-                    DOM.get('security-desc').textContent = securityDescs[PeerNet.securityMode] || '';
+                document.addEventListener('click', (e) => {
+                    if (!Settings.popover.classList.contains('hidden') && !Settings.popover.contains(e.target) && !Settings.toggle.contains(e.target)) {
+                        Settings.close();
+                    }
                 });
             }
         };
@@ -567,34 +602,35 @@
                 FileStore.files.splice(index, 1);
                 FileStore.render();
             },
-            clear: () => { FileStore.files = []; FileStore.render(); },
+            clear: () => {
+                FileStore.files = [];
+                FileStore.render();
+            },
             getTotalSize: () => FileStore.files.reduce((sum, f) => sum + f.size, 0),
             render: () => {
                 const container = DOM.get('file-list');
-                const wrapper = DOM.get('file-list-container');
+                const listContainer = DOM.get('file-list-container');
                 DOM.clear(container);
-                if (FileStore.files.length === 0) { DOM.hide(wrapper); return; }
-                DOM.show(wrapper);
+                if (FileStore.files.length === 0) { DOM.hide(listContainer); return; }
+                DOM.show(listContainer);
                 DOM.get('file-count-label').textContent = FileStore.files.length + ' file' + (FileStore.files.length !== 1 ? 's' : '');
-                DOM.get('total-size-label').textContent = 'Total: ' + formatBytes(FileStore.getTotalSize());
+                DOM.get('total-size-label').textContent = formatBytes(FileStore.getTotalSize());
                 FileStore.files.forEach((file, idx) => {
-                    const iconWrap = DOM.create('div', 'bg-bg p-2 rounded-3xl text-slate-400');
-                    renderIcon(iconWrap, getFileIcon(file.name));
-                    const removeBtn = DOM.create('button', 'opacity-0 group-hover:opacity-100 transition-opacity text-slate-500 hover:text-danger p-1 rounded-3xl', {
-                        'aria-label': 'Remove ' + file.name
-                    });
-                    const removeSvg = DOM.create('svg', 'w-4 h-4', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor' });
-                    removeSvg.appendChild(DOM.create('path', '', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-width': '2', d: 'M6 18L18 6M6 6l12 12' }));
-                    removeBtn.appendChild(removeSvg);
+                    const iconName = getPhosphorIcon(getFileIconName(file.name));
+                    const iconWrapper = DOM.create('div', 'bg-bg p-2 rounded-3xl text-slate-400');
+                    iconWrapper.appendChild(icon(iconName, 'text-lg'));
+                    const removeBtn = DOM.create('button', 'opacity-0 group-hover:opacity-100 transition-opacity text-slate-500 hover:text-danger p-2 rounded-3xl hover:bg-danger/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50', { 'aria-label': 'Remove file' });
+                    removeBtn.appendChild(icon('trash', 'text-sm'));
                     removeBtn.addEventListener('click', () => FileStore.remove(idx));
-                    container.appendChild(DOM.create('div', 'flex items-center gap-3 bg-bg p-3 rounded-3xl group', {}, [
-                        iconWrap,
-                        DOM.create('div', 'flex-1 min-w-0', {}, [
+                    const row = DOM.create('div', 'flex items-center gap-3 px-3 py-2.5 hover:bg-white/[0.02] transition-colors group rounded-3xl', {}, [
+                        iconWrapper,
+                        DOM.create('div', 'flex-1 min-w-0 text-left', {}, [
                             DOM.create('p', 'text-sm font-medium text-slate-200 truncate', { text: file.name }),
                             DOM.create('p', 'text-xs text-slate-500', { text: formatBytes(file.size) }),
                         ]),
                         removeBtn
-                    ]));
+                    ]);
+                    container.appendChild(row);
                 });
             }
         };
@@ -604,35 +640,43 @@
         // ============================================================
         const Transfer = {
             queue: [],
+            currentIndex: 0,
             isPaused: false,
             isCancelled: false,
-            pendingChunkReq: null,
-            stats: { startTime: 0, lastUpdate: 0, bytesSinceUpdate: 0, totalBytes: 0, retries: 0, chunks: 0 },
+            stats: { startTime: 0, lastUpdate: 0, bytesSinceUpdate: 0, totalBytes: 0, sentBytes: 0, retries: 0, chunks: 0 },
             reset: () => {
                 Transfer.queue = [];
+                Transfer.currentIndex = 0;
                 Transfer.isPaused = false;
                 Transfer.isCancelled = false;
-                Transfer.pendingChunkReq = null;
-                Transfer.stats = { startTime: 0, lastUpdate: 0, bytesSinceUpdate: 0, totalBytes: 0, retries: 0, chunks: 0 };
+                Transfer.stats = { startTime: 0, lastUpdate: 0, bytesSinceUpdate: 0, totalBytes: 0, sentBytes: 0, retries: 0, chunks: 0 };
             },
             initQueue: (files) => {
                 Transfer.reset();
                 Transfer.queue = files.map((file, idx) => ({
-                    id: idx, file: file,
+                    id: idx,
+                    file: file,
                     name: Safety.sanitizeFilename(file.name),
-                    size: file.size, type: file.type || 'application/octet-stream',
-                    sent: 0, status: 'pending', buffers: [], downloadUrl: null,
+                    size: file.size,
+                    type: file.type || 'application/octet-stream',
+                    sent: 0,
+                    status: 'pending',
+                    retries: 0,
+                    buffers: [],
+                    expectedSeq: 0,
+                    downloadUrl: null,
                 }));
                 Transfer.stats.totalBytes = files.reduce((s, f) => s + f.size, 0);
             },
-            updateProgress: () => {
-                const sent = Transfer.queue.reduce((s, q) => s + (q.sent || 0), 0);
+            updateMasterProgress: () => {
+                const sent = Transfer.queue.reduce((s, q) => s + q.sent, 0);
+                Transfer.stats.sentBytes = sent;
                 const pct = Transfer.stats.totalBytes > 0 ? Math.round((sent / Transfer.stats.totalBytes) * 100) : 0;
                 DOM.get('master-progress').style.width = pct + '%';
                 DOM.get('master-percent').textContent = pct + '%';
                 DOM.get('master-bytes').textContent = formatBytes(sent) + ' / ' + formatBytes(Transfer.stats.totalBytes);
                 const complete = Transfer.queue.filter(q => q.status === 'complete').length;
-                DOM.get('queue-status').textContent = complete + ' / ' + Transfer.queue.length;
+                DOM.get('queue-status').textContent = complete + ' / ' + Transfer.queue.length + ' done';
                 const now = Date.now();
                 if (now - Transfer.stats.lastUpdate > 1000) {
                     const speedBps = Transfer.stats.bytesSinceUpdate / ((now - Transfer.stats.lastUpdate) / 1000);
@@ -641,8 +685,9 @@
                     const elapsed = (now - Transfer.stats.startTime) / 1000;
                     const overallSpeed = sent / elapsed;
                     if (overallSpeed > 0 && sent < Transfer.stats.totalBytes) {
-                        const eta = Math.round((Transfer.stats.totalBytes - sent) / overallSpeed);
-                        DOM.get('transfer-eta').textContent = eta > 0 ? formatDuration(eta * 1000) + ' left' : 'Finishing...';
+                        const remaining = Transfer.stats.totalBytes - sent;
+                        const eta = Math.round(remaining / overallSpeed);
+                        DOM.get('transfer-eta').textContent = eta > 0 ? formatDuration(eta * 1000) + ' left' : 'Finishing';
                     }
                     Transfer.stats.lastUpdate = now;
                     Transfer.stats.bytesSinceUpdate = 0;
@@ -652,28 +697,30 @@
                 const container = DOM.get('transfer-queue');
                 DOM.clear(container);
                 Transfer.queue.forEach((item, idx) => {
-                    const iconWrap = DOM.create('div', 'bg-bg p-1.5 rounded-3xl text-slate-400');
-                    renderIcon(iconWrap, getFileIcon(item.name));
-                    const isActive = item.status === 'active';
-                    const colors = { pending: 'text-slate-500', active: 'text-brand animate-pulse', paused: 'text-warning', complete: 'text-success', error: 'text-danger' };
-                    const color = colors[item.status] || 'text-slate-500';
-                    const pct = item.size > 0 ? Math.round(((item.sent || 0) / item.size) * 100) : 0;
-                    container.appendChild(DOM.create('div', 'flex items-center gap-3 p-3 rounded-3xl ' + (isActive ? 'bg-white/[0.03]' : 'bg-bg'), {}, [
-                        iconWrap,
+                    const iconName = getPhosphorIcon(getFileIconName(item.name));
+                    const iconWrapper = DOM.create('div', 'bg-bg p-1.5 rounded-3xl text-slate-400');
+                    iconWrapper.appendChild(icon(iconName, 'text-base'));
+                    const isActive = idx === Transfer.currentIndex && item.status === 'active';
+                    const statusColors = { pending: 'text-slate-500', active: 'text-brand animate-pulse', paused: 'text-warning', complete: 'text-success', error: 'text-danger' };
+                    const statusColor = statusColors[item.status] || 'text-slate-500';
+                    const pct = item.size > 0 ? Math.round((item.sent / item.size) * 100) : 0;
+                    const row = DOM.create('div', 'flex items-center gap-3 px-3 py-3 ' + (isActive ? 'bg-white/[0.03] rounded-3xl' : 'rounded-3xl'), {}, [
+                        iconWrapper,
                         DOM.create('div', 'flex-1 min-w-0', {}, [
                             DOM.create('div', 'flex justify-between items-center mb-1', {}, [
                                 DOM.create('p', 'text-sm font-medium text-slate-200 truncate', { text: item.name }),
-                                DOM.create('span', 'text-xs font-bold ' + color, { text: item.status.toUpperCase() }),
+                                DOM.create('span', 'text-xs font-bold ' + statusColor, { text: item.status.toUpperCase() }),
                             ]),
                             DOM.create('div', 'w-full bg-bg rounded-3xl h-1.5 overflow-hidden', {}, [
-                                DOM.create('div', 'bg-brand h-full rounded-3xl transition-all duration-300', { style: { width: pct + '%' } }),
+                                DOM.create('div', 'bg-brand h-full transition-all duration-300', { style: { width: pct + '%' } }),
                             ]),
                             DOM.create('div', 'flex justify-between mt-1', {}, [
-                                DOM.create('span', 'text-[10px] text-slate-500', { text: formatBytes(item.sent || 0) + ' / ' + formatBytes(item.size) }),
+                                DOM.create('span', 'text-[10px] text-slate-500', { text: formatBytes(item.sent) + ' / ' + formatBytes(item.size) }),
                                 DOM.create('span', 'text-[10px] text-slate-500', { text: pct + '%' }),
                             ]),
                         ]),
-                    ]));
+                    ]);
+                    container.appendChild(row);
                 });
             },
         };
@@ -695,44 +742,58 @@
                 PeerNet.connectToId = Safety.sanitizePeerId(params.get('peer'));
                 PeerNet.encryptionKey = window.location.hash.slice(1) || null;
                 PeerNet.isReceiver = !!PeerNet.connectToId;
-                PeerNet.throttleMs = parseInt(DOM.get('throttle-select').value);
-                PeerNet.securityMode = DOM.get('security-select').value;
+
+                const throttleSelect = DOM.get('throttle-select');
+                const securitySelect = DOM.get('security-select');
+                PeerNet.throttleMs = parseInt(throttleSelect.value);
+                PeerNet.securityMode = securitySelect.value;
+
+                throttleSelect.addEventListener('change', (e) => { PeerNet.throttleMs = parseInt(e.target.value); });
+                securitySelect.addEventListener('change', (e) => { PeerNet.securityMode = e.target.value; });
 
                 PeerNet.peer = new Peer({ debug: 1 });
-                PeerNet.peer.on('open', () => {
+
+                PeerNet.peer.on('open', (id) => {
                     updateStatus('Ready', 'success');
                     if (PeerNet.isReceiver) { PeerNet.startReceiver(); }
                     else { State.go('upload'); PeerNet.setupSender(); }
                 });
+
                 PeerNet.peer.on('error', (err) => {
+                    console.error(err);
                     updateStatus('Error', 'danger');
-                    let title = 'Error', msg = err.message || 'Something went wrong.', canRetry = false;
-                    if (err.type === 'peer-unavailable') { title = 'Sender Offline'; msg = 'The sender is no longer available or the link expired.'; }
-                    else if (err.type === 'network' || err.type === 'server-error') { title = 'Network Error'; msg = 'Cannot reach the signaling server.'; canRetry = true; }
+                    let title = 'Error', msg = err.message || 'Unexpected error.', canRetry = false;
+                    if (err.type === 'peer-unavailable') { title = 'Unavailable'; msg = 'Sender is offline or link expired.'; }
+                    else if (err.type === 'network' || err.type === 'server-error') { title = 'Network'; msg = 'Cannot reach signaling server.'; canRetry = true; }
                     else if (err.type === 'disconnected') { title = 'Disconnected'; msg = 'Connection closed unexpectedly.'; canRetry = true; }
-                    else if (err.type === 'unavailable-id') { title = 'ID Conflict'; msg = 'Peer ID already in use. Refresh to regenerate.'; }
+                    else if (err.type === 'unavailable-id') { title = 'ID Conflict'; msg = 'Peer ID already in use.'; }
                     showError(title, msg, { type: err.type, canRetry: canRetry });
                 });
-                PeerNet.peer.on('disconnected', () => updateStatus('Disconnected', 'danger'));
+
+                PeerNet.peer.on('disconnected', () => updateStatus('Offline', 'danger'));
             },
 
             setupSender: () => {
                 const dropzone = DOM.get('dropzone');
                 const fileInput = DOM.get('file-input');
-                const prevent = (e) => { e.preventDefault(); e.stopPropagation(); };
-                dropzone.addEventListener('dragenter', prevent);
-                dropzone.addEventListener('dragover', (e) => { prevent(e); dropzone.classList.add('bg-white/[0.03]'); });
-                dropzone.addEventListener('dragleave', (e) => { prevent(e); dropzone.classList.remove('bg-white/[0.03]'); });
+                const handleDrag = (e) => { e.preventDefault(); e.stopPropagation(); };
+
+                dropzone.addEventListener('dragenter', handleDrag);
+                dropzone.addEventListener('dragover', (e) => { handleDrag(e); dropzone.classList.add('bg-brand/5'); });
+                dropzone.addEventListener('dragleave', (e) => { handleDrag(e); dropzone.classList.remove('bg-brand/5'); });
                 dropzone.addEventListener('drop', (e) => {
-                    prevent(e); dropzone.classList.remove('bg-white/[0.03]');
+                    handleDrag(e);
+                    dropzone.classList.remove('bg-brand/5');
                     if (e.dataTransfer.files.length) FileStore.add(e.dataTransfer.files);
                 });
                 fileInput.addEventListener('change', (e) => { if (e.target.files.length) FileStore.add(e.target.files); });
+
                 DOM.get('clear-files-btn').addEventListener('click', FileStore.clear);
                 DOM.get('confirm-files-btn').addEventListener('click', () => {
                     if (FileStore.files.length === 0) { Toast.show('Select at least one file', 'warning'); return; }
                     PeerNet.prepareShare();
                 });
+
                 PeerNet.peer.on('connection', (conn) => {
                     if (PeerNet.conn) { conn.close(); return; }
                     PeerNet.conn = conn;
@@ -741,39 +802,48 @@
             },
 
             prepareShare: () => {
-                if (!PeerNet.encryptionKey && PeerNet.securityMode !== 'none') PeerNet.encryptionKey = Crypto.generateKey();
+                if (!PeerNet.encryptionKey && PeerNet.securityMode !== 'none') {
+                    PeerNet.encryptionKey = Crypto.generateKey();
+                }
                 const baseUrl = window.location.origin + window.location.pathname;
                 const shareUrl = baseUrl + '?peer=' + PeerNet.peer.id + '#' + (PeerNet.encryptionKey || '');
-                new QRious({ element: DOM.get('qrcode'), value: shareUrl, size: 220, level: 'H', foreground: '#0e0e0f', background: '#ffffff' });
+
+                new QRious({ element: DOM.get('qrcode'), value: shareUrl, size: 250, level: 'H', foreground: '#0e0e0f', background: '#ffffff' });
+
                 const manifest = DOM.get('share-file-list');
                 DOM.clear(manifest);
                 FileStore.files.forEach(file => {
-                    const iconWrap = DOM.create('div', 'bg-bg p-1.5 rounded-3xl text-slate-400');
-                    renderIcon(iconWrap, getFileIcon(file.name));
-                    manifest.appendChild(DOM.create('div', 'flex items-center gap-3', {}, [
-                        iconWrap,
-                        DOM.create('div', 'flex-1 min-w-0', {}, [
+                    const iconName = getPhosphorIcon(getFileIconName(file.name));
+                    const iconWrapper = DOM.create('div', 'bg-bg p-1.5 rounded-3xl text-slate-400');
+                    iconWrapper.appendChild(icon(iconName, 'text-base'));
+                    const row = DOM.create('div', 'flex items-center gap-3 px-3 py-2 rounded-3xl', {}, [
+                        iconWrapper,
+                        DOM.create('div', 'flex-1 min-w-0 text-left', {}, [
                             DOM.create('p', 'text-sm text-slate-200 truncate', { text: Safety.sanitizeFilename(file.name) }),
                             DOM.create('p', 'text-xs text-slate-500', { text: formatBytes(file.size) }),
                         ]),
-                    ]));
+                    ]);
+                    manifest.appendChild(row);
                 });
-                const secTitle = PeerNet.securityMode === 'none' ? 'Standard transfer' : PeerNet.securityMode === 'encrypt' ? 'Scrambled transfer' : 'Verified transfer';
-                const secText = PeerNet.securityMode === 'none' ? 'WebRTC DataChannel only' : PeerNet.securityMode === 'encrypt' ? 'XOR obfuscation via URL hash' : 'XOR + checksum verification';
-                DOM.get('security-badge-title').textContent = secTitle;
+
+                const secText = PeerNet.securityMode === 'none' ? 'Standard WebRTC' :
+                                PeerNet.securityMode === 'encrypt' ? 'XOR stream + URL hash' :
+                                'Paranoid + chunk checksums';
                 DOM.get('security-badge-text').textContent = secText;
-                DOM.get('copy-link-btn').onclick = () => navigator.clipboard.writeText(shareUrl).then(() => Toast.show('Link copied', 'success'));
+
+                DOM.get('copy-link-btn').onclick = () => { navigator.clipboard.writeText(shareUrl).then(() => Toast.show('Link copied', 'success')); };
                 DOM.get('copy-key-btn').onclick = () => {
-                    if (PeerNet.encryptionKey) navigator.clipboard.writeText(PeerNet.encryptionKey).then(() => Toast.show('Key copied', 'success'));
-                    else Toast.show('No key in standard mode', 'info');
+                    if (PeerNet.encryptionKey) { navigator.clipboard.writeText(PeerNet.encryptionKey).then(() => Toast.show('Key copied', 'success')); }
+                    else { Toast.show('No key in standard mode', 'info'); }
                 };
+
                 State.go('share');
             },
 
             startReceiver: () => {
                 State.go('transfer');
-                DOM.get('transfer-status').textContent = 'Connecting...';
-                DOM.get('transfer-filename').textContent = 'Target: ' + PeerNet.connectToId.slice(0, 12) + '...';
+                DOM.get('transfer-status').textContent = 'Connecting';
+                DOM.get('transfer-subtitle').textContent = 'Target: ' + PeerNet.connectToId.slice(0, 12) + '...';
                 const conn = PeerNet.peer.connect(PeerNet.connectToId, { reliable: true, metadata: { version: '2.0' } });
                 PeerNet.conn = conn;
                 PeerNet.handleConnection(conn, true);
@@ -782,196 +852,314 @@
             handleConnection: (conn, isReceiver) => {
                 isReceiver = isReceiver || false;
                 let connectTimeout = setTimeout(() => {
-                    if (!conn.open) showError('Timeout', 'Failed to connect within 30 seconds. The sender may be behind a restrictive NAT.', { canRetry: true });
+                    if (conn.open === false) {
+                        showError('Timeout', 'Failed to connect within 30s. Sender may be behind a restrictive NAT.', { canRetry: true });
+                    }
                 }, CONFIG.CONNECT_TIMEOUT);
 
                 conn.on('open', () => {
                     clearTimeout(connectTimeout);
                     updateStatus('Connected', 'success');
                     if (isReceiver) {
-                        DOM.get('transfer-status').textContent = 'Waiting for manifest...';
-                        DOM.get('transfer-filename').textContent = 'Secure channel open';
+                        DOM.get('transfer-status').textContent = 'Awaiting manifest';
+                        DOM.get('transfer-subtitle').textContent = 'Secure channel open';
                     } else {
                         Transfer.initQueue(FileStore.files);
                         State.go('transfer');
                         DOM.get('transfer-status').textContent = 'Sending manifest';
-                        DOM.get('transfer-filename').textContent = Transfer.queue.length + ' files queued';
+                        DOM.get('transfer-subtitle').textContent = Transfer.queue.length + ' files';
                         Transfer.stats.startTime = Date.now();
                         Transfer.stats.lastUpdate = Date.now();
-                        conn.send({ type: 'manifest', files: Transfer.queue.map(q => ({ id: q.id, name: q.name, size: q.size, filetype: q.type })), security: PeerNet.securityMode });
+                        conn.send({ type: 'manifest', files: Transfer.queue.map(q => ({ id: q.id, name: q.name, size: q.size, filetype: q.type })), security: PeerNet.securityMode, version: '2.0' });
                         Transfer.renderQueue();
+                        PeerNet.sendNextFile();
                     }
                 });
 
                 let currentFile = null;
-                let currentSeq = 0;
-                let receivedBuffers = [];
 
                 conn.on('data', (data) => {
                     if (!data || typeof data !== 'object') return;
 
                     if (isReceiver) {
                         if (data.type === 'manifest') {
-                            if (!Array.isArray(data.files)) { showError('Invalid manifest', 'Corrupted file list received.'); return; }
+                            if (!Array.isArray(data.files)) { showError('Bad manifest', 'Corrupted manifest from sender.'); return; }
                             Transfer.queue = data.files.map(f => ({
                                 id: f.id, name: Safety.sanitizeFilename(f.name), size: f.size,
-                                type: f.filetype || 'application/octet-stream', sent: 0, status: 'pending', buffers: [], downloadUrl: null,
+                                type: f.filetype || 'application/octet-stream', sent: 0, status: 'pending',
+                                buffers: [], expectedSeq: 0, downloadUrl: null,
                             }));
                             Transfer.stats.totalBytes = Transfer.queue.reduce((s, q) => s + q.size, 0);
-                            Transfer.stats.startTime = Date.now(); Transfer.stats.lastUpdate = Date.now();
-                            DOM.get('transfer-status').textContent = 'Receiving...';
-                            Transfer.renderQueue(); Transfer.updateProgress();
-                            const first = Transfer.queue[0];
-                            if (first) conn.send({ type: 'req-header', id: first.id });
-                        }
-                        else if (data.type === 'header') {
-                            currentFile = Transfer.queue.find(q => q.id === data.id);
-                            if (!currentFile) { conn.send({ type: 'error', message: 'Bad file ID' }); return; }
-                            currentFile.status = 'active'; currentSeq = 0; receivedBuffers = [];
+                            Transfer.stats.startTime = Date.now();
+                            Transfer.stats.lastUpdate = Date.now();
+                            DOM.get('transfer-status').textContent = 'Receiving';
                             Transfer.renderQueue();
+                            Transfer.updateMasterProgress();
+                            conn.send({ type: 'ack-manifest' });
+                        }
+                        else if (data.type === 'file-header') {
+                            currentFile = Transfer.queue.find(q => q.id === data.id);
+                            if (!currentFile) { conn.send({ type: 'error', message: 'Unknown ID' }); return; }
+                            currentFile.status = 'active';
+                            currentFile.buffers = [];
+                            currentFile.sent = 0;
+                            currentFile.expectedSeq = 0;
+                            Transfer.currentIndex = Transfer.queue.indexOf(currentFile);
                             DOM.get('transfer-status').textContent = 'Receiving: ' + currentFile.name;
-                            conn.send({ type: 'req-chunk', id: currentFile.id, seq: 0 });
+                            Transfer.renderQueue();
+                            conn.send({ type: 'ack-header', id: data.id });
                         }
                         else if (data.type === 'chunk') {
-                            if (!currentFile) return;
+                            if (!currentFile || data.id !== currentFile.id) return;
+
+                            if (data.seq !== currentFile.expectedSeq) {
+                                console.warn('Seq gap', currentFile.expectedSeq, data.seq);
+                            }
+                            currentFile.expectedSeq = (data.seq || 0) + 1;
+
                             let chunkData = data.data;
                             if (PeerNet.encryptionKey && data.encrypted) {
-                                try { chunkData = Crypto.xor(chunkData, PeerNet.encryptionKey); }
-                                catch (e) { conn.send({ type: 'req-chunk', id: currentFile.id, seq: data.seq }); return; }
+                                try { chunkData = Crypto.decrypt(chunkData, PeerNet.encryptionKey); }
+                                catch (e) { conn.send({ type: 'chunk-error', id: currentFile.id, seq: data.seq, message: 'Decrypt failed' }); return; }
                             }
                             if (data.checksum && PeerNet.securityMode === 'paranoid') {
-                                if (Crypto.checksum(chunkData) !== data.checksum) {
-                                    Transfer.stats.retries++; DOM.get('retry-display').textContent = Transfer.stats.retries;
-                                    conn.send({ type: 'req-chunk', id: currentFile.id, seq: data.seq });
+                                const cs = Crypto.checksum(chunkData);
+                                if (cs !== data.checksum) {
+                                    conn.send({ type: 'chunk-error', id: currentFile.id, seq: data.seq, message: 'Checksum mismatch' });
+                                    Transfer.stats.retries++;
+                                    DOM.get('retry-display').textContent = Transfer.stats.retries;
                                     return;
                                 }
                             }
-                            receivedBuffers.push(chunkData);
-                            currentFile.sent = (currentFile.sent || 0) + chunkData.byteLength;
+                            currentFile.buffers.push(chunkData);
+                            currentFile.sent += chunkData.byteLength;
                             Transfer.stats.bytesSinceUpdate += chunkData.byteLength;
-                            Transfer.stats.chunks++; DOM.get('chunk-display').textContent = Transfer.stats.chunks;
-                            Transfer.updateProgress(); Transfer.renderQueue();
-                            currentSeq++;
-                            const totalChunks = Math.ceil(currentFile.size / CONFIG.CHUNK_SIZE);
-                            if (currentSeq >= totalChunks) {
-                                const blob = new Blob(receivedBuffers, { type: currentFile.type });
-                                const url = URL.createObjectURL(blob);
-                                currentFile.downloadUrl = url; currentFile.status = 'complete';
-                                const a = document.createElement('a'); a.style.display = 'none'; a.href = url; a.download = currentFile.name;
-                                document.body.appendChild(a); a.click();
-                                setTimeout(() => { if (a.parentNode) a.parentNode.removeChild(a); }, 100);
-                                conn.send({ type: 'file-done', id: currentFile.id });
-                                const next = Transfer.queue.find(q => q.status === 'pending');
-                                if (next) conn.send({ type: 'req-header', id: next.id });
-                                else setTimeout(() => PeerNet.showDone(), 400);
-                            } else {
-                                conn.send({ type: 'req-chunk', id: currentFile.id, seq: currentSeq });
+                            Transfer.stats.chunks++;
+                            DOM.get('chunk-display').textContent = Transfer.stats.chunks;
+                            Transfer.updateMasterProgress();
+                            Transfer.renderQueue();
+                            setTimeout(() => { conn.send({ type: 'ack-chunk', id: currentFile.id, seq: data.seq }); }, PeerNet.throttleMs / 2);
+                        }
+                        else if (data.type === 'file-done') {
+                            if (!currentFile) return;
+                            currentFile.status = 'complete';
+                            Transfer.updateMasterProgress();
+                            Transfer.renderQueue();
+                            conn.send({ type: 'ack-file-done', id: currentFile.id });
+                            if (Transfer.queue.every(q => q.status === 'complete')) {
+                                DOM.get('transfer-status').textContent = 'Complete';
+                                setTimeout(() => PeerNet.showDone(), 400);
                             }
                         }
                         else if (data.type === 'all-done') {
+                            DOM.get('transfer-status').textContent = 'All done';
                             setTimeout(() => PeerNet.showDone(), 400);
                         }
-                        else if (data.type === 'cancel') { showError('Cancelled', 'The sender cancelled the transfer.'); }
+                        else if (data.type === 'cancel') { showError('Cancelled', 'Sender cancelled.'); }
                         else if (data.type === 'error') { showError('Sender error', data.message || 'Error on sender side.'); }
                     } else {
-                        // SENDER
-                        if (data.type === 'req-header') {
-                            const item = Transfer.queue.find(q => q.id === data.id);
-                            if (item) {
-                                item.status = 'active'; Transfer.renderQueue();
-                                conn.send({ type: 'header', id: item.id, name: item.name, size: item.size, filetype: item.type });
+                        if (data.type === 'ack-manifest') { DOM.get('transfer-status').textContent = 'Started'; }
+                        else if (data.type === 'ack-header') {
+                            const fileItem = Transfer.queue.find(q => q.id === data.id);
+                            if (fileItem) {
+                                fileItem.status = 'active';
+                                Transfer.currentIndex = Transfer.queue.indexOf(fileItem);
+                                Transfer.renderQueue();
+                                PeerNet.sendChunks(fileItem, conn);
                             }
                         }
-                        else if (data.type === 'req-chunk') {
-                            if (Transfer.isPaused) { Transfer.pendingChunkReq = data; return; }
-                            setTimeout(() => PeerNet.sendChunk(data.id, data.seq, conn), PeerNet.throttleMs);
+                        else if (data.type === 'ack-chunk') { /* flow continues */ }
+                        else if (data.type === 'chunk-error') {
+                            Toast.show('Chunk error: ' + data.message, 'warning');
+                            Transfer.stats.retries++;
+                            DOM.get('retry-display').textContent = Transfer.stats.retries;
                         }
-                        else if (data.type === 'file-done') {
-                            const item = Transfer.queue.find(q => q.id === data.id);
-                            if (item) { item.status = 'complete'; Transfer.updateProgress(); Transfer.renderQueue(); }
-                            const allDone = Transfer.queue.every(q => q.status === 'complete');
-                            if (allDone) { conn.send({ type: 'all-done' }); setTimeout(() => PeerNet.showDone(), 400); }
+                        else if (data.type === 'ack-file-done') {
+                            const fileItem = Transfer.queue.find(q => q.id === data.id);
+                            if (fileItem) {
+                                fileItem.status = 'complete';
+                                Transfer.updateMasterProgress();
+                                Transfer.renderQueue();
+                                const next = Transfer.queue.find(q => q.status === 'pending');
+                                if (next) { setTimeout(() => PeerNet.sendFileHeader(next, conn), PeerNet.throttleMs); }
+                                else if (Transfer.queue.every(q => q.status === 'complete')) {
+                                    conn.send({ type: 'all-done' });
+                                    DOM.get('transfer-status').textContent = 'All sent';
+                                    setTimeout(() => PeerNet.showDone(), 400);
+                                }
+                            }
                         }
-                        else if (data.type === 'cancel') { showError('Cancelled', 'The receiver cancelled the transfer.'); }
+                        else if (data.type === 'cancel') { showError('Cancelled', 'Receiver cancelled.'); }
                     }
                 });
 
                 conn.on('close', () => {
                     updateStatus('Closed', 'danger');
                     const allComplete = Transfer.queue.every(q => q.status === 'complete');
-                    if (!allComplete && State.current === 'transfer') showError('Connection lost', 'Peer disconnected before completion.', { canRetry: true });
+                    if (allComplete && State.current !== 'done') { PeerNet.showDone(); }
+                    else if (!allComplete && State.current === 'transfer') { showError('Lost', 'Peer disconnected before completion.', { canRetry: true }); }
                 });
-                conn.on('error', (err) => showError('Channel error', err.message || 'Data channel failed.'));
+
+                conn.on('error', (err) => { showError('Channel error', err.message || 'Data channel failed.'); });
 
                 DOM.get('pause-btn').onclick = () => {
                     Transfer.isPaused = !Transfer.isPaused;
-                    DOM.get('pause-btn-text').textContent = Transfer.isPaused ? 'Resume' : 'Pause';
+                    const btnText = DOM.get('pause-btn-text');
+                    const btnIcon = DOM.get('pause-icon');
+                    btnText.textContent = Transfer.isPaused ? 'Resume' : 'Pause';
+                    btnIcon.className = Transfer.isPaused ? 'ph ph-play text-base' : 'ph ph-pause text-base';
                     Toast.show(Transfer.isPaused ? 'Paused' : 'Resumed', 'info');
-                    if (!Transfer.isPaused && Transfer.pendingChunkReq) {
-                        const req = Transfer.pendingChunkReq; Transfer.pendingChunkReq = null;
-                        setTimeout(() => PeerNet.sendChunk(req.id, req.seq, conn), PeerNet.throttleMs);
+                };
+
+                DOM.get('break-btn').onclick = () => {
+                    if (confirm('Sever the connection to test recovery?')) {
+                        conn.close();
+                        PeerNet.peer.destroy();
+                        showError('Broken', 'You severed the connection.', { canRetry: false });
                     }
                 };
-                DOM.get('break-btn').onclick = () => {
-                    if (confirm('Sever the connection?')) { conn.close(); PeerNet.peer.destroy(); showError('Connection broken', 'You severed the peer link.', { canRetry: false }); }
-                };
+
                 DOM.get('cancel-transfer-btn').onclick = () => {
-                    if (confirm('Cancel the transfer?')) { conn.send({ type: 'cancel' }); setTimeout(() => { conn.close(); showError('Cancelled', 'You cancelled the transfer.'); }, 200); }
+                    if (confirm('Cancel all transfers?')) {
+                        conn.send({ type: 'cancel' });
+                        setTimeout(() => { conn.close(); showError('Cancelled', 'You cancelled.'); }, 300);
+                    }
                 };
             },
 
-            sendChunk: (fileId, seq, conn) => {
-                const item = Transfer.queue.find(q => q.id === fileId);
-                if (!item) return;
-                const offset = seq * CONFIG.CHUNK_SIZE;
-                const end = Math.min(offset + CONFIG.CHUNK_SIZE, item.size);
-                const slice = item.file.slice(offset, end);
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    const buffer = e.target.result;
-                    let payload = buffer; let encrypted = false; let checksum = null;
-                    if (PeerNet.encryptionKey && PeerNet.securityMode !== 'none') { payload = Crypto.xor(buffer, PeerNet.encryptionKey); encrypted = true; }
-                    if (PeerNet.securityMode === 'paranoid') checksum = Crypto.checksum(payload);
-                    conn.send({ type: 'chunk', id: fileId, seq: seq, data: payload, encrypted: encrypted, checksum: checksum });
-                    item.sent = end;
-                    Transfer.stats.bytesSinceUpdate += buffer.byteLength;
-                    Transfer.stats.chunks++; DOM.get('chunk-display').textContent = Transfer.stats.chunks;
-                    DOM.get('rtt-display').textContent = Math.floor(Math.random() * 40 + 15);
-                    Transfer.updateProgress(); Transfer.renderQueue();
-                };
-                reader.onerror = () => Toast.show('Read error', 'error');
-                reader.readAsArrayBuffer(slice);
+            sendNextFile: () => {
+                const pending = Transfer.queue.find(q => q.status === 'pending');
+                if (pending) PeerNet.sendFileHeader(pending, PeerNet.conn);
+            },
+
+            sendFileHeader: (fileItem, conn) => {
+                fileItem.status = 'active';
+                Transfer.currentIndex = Transfer.queue.indexOf(fileItem);
+                Transfer.renderQueue();
+                const header = { type: 'file-header', id: fileItem.id, name: fileItem.name, size: fileItem.size, filetype: fileItem.type };
+                if (PeerNet.securityMode === 'paranoid') header.checksum = 'pending';
+                conn.send(header);
+            },
+
+            sendChunks: (fileItem, conn) => {
+                const file = fileItem.file;
+                let offset = 0;
+                let seq = 0;
+
+                function sendNext() {
+                    if (!conn || conn.open === false || Transfer.isCancelled) {
+                        if (!Transfer.isCancelled && conn && conn.open === false) {
+                            showError('Lost', 'Peer disconnected during transfer.', { canRetry: true });
+                        }
+                        return;
+                    }
+                    if (Transfer.isPaused) { setTimeout(sendNext, 500); return; }
+                    if (offset >= file.size) {
+                        conn.send({ type: 'file-done', id: fileItem.id });
+                        return;
+                    }
+
+                    const end = Math.min(offset + CONFIG.CHUNK_SIZE, file.size);
+                    const slice = file.slice(offset, end);
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const buffer = e.target.result;
+                        let payload = buffer;
+                        let encrypted = false;
+                        let checksum = null;
+                        if (PeerNet.encryptionKey && PeerNet.securityMode !== 'none') {
+                            payload = Crypto.encrypt(buffer, PeerNet.encryptionKey);
+                            encrypted = true;
+                        }
+                        if (PeerNet.securityMode === 'paranoid') checksum = Crypto.checksum(payload);
+
+                        const chunkMsg = { type: 'chunk', id: fileItem.id, seq: seq, data: payload, encrypted: encrypted };
+                        if (checksum) chunkMsg.checksum = checksum;
+                        conn.send(chunkMsg);
+
+                        offset += buffer.byteLength;
+                        seq++;
+                        fileItem.sent = offset;
+                        Transfer.stats.bytesSinceUpdate += buffer.byteLength;
+                        Transfer.stats.chunks++;
+                        DOM.get('chunk-display').textContent = Transfer.stats.chunks;
+                        Transfer.updateMasterProgress();
+                        Transfer.renderQueue();
+                        DOM.get('rtt-display').textContent = Math.floor(Math.random() * 40 + 15);
+
+                        if (PeerNet.throttleMs > 0) setTimeout(sendNext, PeerNet.throttleMs);
+                        else setTimeout(sendNext, 0);
+                    };
+                    reader.onerror = () => { Toast.show('Read error', 'error'); };
+                    reader.readAsArrayBuffer(slice);
+                }
+                sendNext();
             },
 
             showDone: () => {
                 const summary = DOM.get('done-summary');
                 DOM.clear(summary);
                 const duration = Transfer.stats.startTime ? Date.now() - Transfer.stats.startTime : 0;
-                const avgSpeed = Transfer.stats.totalBytes > 0 && duration > 0 ? (Transfer.stats.totalBytes / duration * 1000 / 1024 / 1024).toFixed(1) + ' MB/s' : '--';
-                [
+                const stats = [
                     ['Files', '' + Transfer.queue.length],
                     ['Total', formatBytes(Transfer.stats.totalBytes)],
                     ['Duration', formatDuration(duration)],
-                    ['Speed', avgSpeed],
+                    ['Speed', Transfer.stats.totalBytes > 0 && duration > 0 ? (Transfer.stats.totalBytes / duration * 1000 / 1024 / 1024).toFixed(1) + ' MB/s' : '--'],
                     ['Chunks', '' + Transfer.stats.chunks],
                     ['Retries', '' + Transfer.stats.retries],
-                ].forEach(([k, v]) => {
+                ];
+                stats.forEach(([label, value]) => {
                     summary.appendChild(DOM.create('div', 'flex justify-between text-sm', {}, [
-                        DOM.create('span', 'text-slate-500', { text: k }), DOM.create('span', 'text-slate-200 font-medium', { text: v }),
+                        DOM.create('span', 'text-slate-500', { text: label }),
+                        DOM.create('span', 'text-slate-200 font-medium', { text: value }),
                     ]));
                 });
-                const dlBtn = DOM.get('download-again-btn');
-                if (PeerNet.isReceiver && Transfer.queue.some(q => q.downloadUrl)) {
-                    DOM.show(dlBtn);
-                    dlBtn.onclick = () => {
-                        Transfer.queue.forEach(q => {
-                            if (!q.downloadUrl) return;
-                            const a = document.createElement('a'); a.href = q.downloadUrl; a.download = q.name; a.style.display = 'none';
-                            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+
+                const filesContainer = DOM.get('done-files-container');
+                const filesList = DOM.get('done-file-list');
+                DOM.clear(filesList);
+
+                if (PeerNet.isReceiver && Transfer.queue.some(q => q.buffers.length > 0)) {
+                    DOM.show(filesContainer);
+                    Transfer.queue.forEach(q => {
+                        if (q.buffers.length > 0) {
+                            const blob = new Blob(q.buffers, { type: q.type });
+                            const url = URL.createObjectURL(blob);
+                            q.downloadUrl = url;
+                            const iconName = getPhosphorIcon(getFileIconName(q.name));
+                            const row = DOM.create('div', 'flex items-center gap-3 px-3 py-2.5 rounded-3xl', {}, [
+                                DOM.create('div', 'bg-bg p-2 rounded-3xl text-slate-400', {}, [icon(iconName, 'text-lg')]),
+                                DOM.create('div', 'flex-1 min-w-0 text-left', {}, [
+                                    DOM.create('p', 'text-sm font-medium text-slate-200 truncate', { text: q.name }),
+                                    DOM.create('p', 'text-xs text-slate-500', { text: formatBytes(q.size) }),
+                                ]),
+                                DOM.create('a', 'bg-brand hover:bg-brand/90 text-bg text-xs font-bold px-3 py-2 rounded-3xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50', {
+                                    href: url, download: q.name, text: 'Download'
+                                }),
+                            ]);
+                            filesList.appendChild(row);
+                        }
+                    });
+                    const downloadAll = DOM.create('button', 'w-full mt-2 bg-bg hover:bg-white/5 text-slate-200 py-2.5 rounded-3xl font-medium transition-colors text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50', { text: 'Download All' });
+                    downloadAll.addEventListener('click', () => {
+                        Transfer.queue.forEach((q, i) => {
+                            if (q.downloadUrl) {
+                                setTimeout(() => {
+                                    const a = document.createElement('a');
+                                    a.href = q.downloadUrl;
+                                    a.download = q.name;
+                                    a.style.display = 'none';
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    document.body.removeChild(a);
+                                }, i * 250);
+                            }
                         });
-                        Toast.show('Downloads started', 'success');
-                    };
-                } else DOM.hide(dlBtn);
+                    });
+                    filesList.appendChild(downloadAll);
+                } else {
+                    DOM.hide(filesContainer);
+                }
                 State.go('done');
             },
         };
@@ -983,36 +1171,39 @@
             details = details || {};
             DOM.get('error-title').textContent = title;
             DOM.get('error-message').textContent = message;
-            const diag = DOM.get('error-diagnostics');
-            DOM.clear(diag);
-            [
+            const diagnostics = DOM.get('error-diagnostics');
+            DOM.clear(diagnostics);
+            const items = [
                 ['Code', details.type || 'UNKNOWN'],
                 ['Time', new Date().toISOString()],
                 ['State', State.current || 'unknown'],
                 ['Peer', PeerNet.peer && PeerNet.peer.id ? PeerNet.peer.id.slice(0, 12) + '...' : 'N/A'],
                 ['Mode', PeerNet.isReceiver ? 'Receiver' : 'Sender'],
                 ['Security', PeerNet.securityMode],
-            ].forEach(([k, v]) => {
-                diag.appendChild(DOM.create('div', 'flex justify-between', {}, [
-                    DOM.create('span', 'text-slate-500', { text: k + ':' }),
-                    DOM.create('span', 'text-slate-300', { text: v }),
+            ];
+            items.forEach(([label, value]) => {
+                diagnostics.appendChild(DOM.create('div', 'flex justify-between', {}, [
+                    DOM.create('span', 'text-slate-500', { text: label + ':' }),
+                    DOM.create('span', 'text-slate-300', { text: value }),
                 ]));
             });
             const retryBtn = DOM.get('retry-btn');
             if (details.canRetry && PeerNet.isReceiver) {
                 DOM.show(retryBtn);
                 retryBtn.onclick = () => { State.go('transfer'); PeerNet.startReceiver(); };
-            } else DOM.hide(retryBtn);
+            } else {
+                DOM.hide(retryBtn);
+            }
             State.go('error');
         }
 
         function updateStatus(text, color) {
             const dot = DOM.get('status-dot');
-            const ping = dot.previousElementSibling;
+            const ping = DOM.get('status-ping');
             const label = DOM.get('status-text');
             const map = { success: 'bg-emerald-500', danger: 'bg-red-500', warning: 'bg-amber-500', info: 'bg-blue-500' };
             const bg = map[color] || 'bg-slate-500';
-            dot.className = 'relative inline-flex rounded-full h-2.5 w-2.5 ' + bg;
+            dot.className = 'relative inline-flex rounded-full h-2 w-2 ' + bg;
             ping.className = 'animate-ping absolute inline-flex h-full w-full rounded-full ' + bg + ' opacity-75';
             label.textContent = text;
         }
@@ -1022,9 +1213,15 @@
         // ============================================================
         const App = {
             init: () => {
-                if (!window.isSecureContext) { alert('WebRTC requires HTTPS or localhost.'); return; }
+                if (!window.isSecureContext) {
+                    alert('WebRTC requires HTTPS or localhost.');
+                    return;
+                }
                 window.addEventListener('beforeunload', (e) => {
-                    if (State.current === 'transfer' || State.current === 'share') { e.preventDefault(); e.returnValue = ''; }
+                    if (State.current === 'transfer' || State.current === 'share') {
+                        e.preventDefault();
+                        e.returnValue = '';
+                    }
                 });
                 Settings.init();
                 PeerNet.init();
