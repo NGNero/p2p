@@ -3,11 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DropZone - P2P File Transfer</title>
+    <title>DropZone - Secure P2P Transfer</title>
     
     <!-- Google Sans Flex Font -->
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Google+Sans+Flex:opsz,wght@8..144,100..1000&display=swap');
+        
+        body { font-family: "Google Sans Flex", sans-serif; }
+        
+        /* Custom UI Animations */
+        .fade-in { animation: fadeIn 0.3s ease-out forwards; }
+        .fade-out { animation: fadeOut 0.3s ease-in forwards; }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeOut { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-10px); } }
+        
+        .animated-stripe {
+            background-image: linear-gradient(45deg, rgba(255,255,255,.15) 25%, transparent 25%, transparent 50%, rgba(255,255,255,.15) 50%, rgba(255,255,255,.15) 75%, transparent 75%, transparent);
+            background-size: 2rem 2rem;
+            animation: moveStripe 1s linear infinite;
+        }
+        @keyframes moveStripe { from { background-position: 2rem 0; } to { background-position: 0 0; } }
+
+        /* Drag & Drop glow */
+        .drag-active {
+            border-color: #3b82f6 !important;
+            background-color: rgba(59, 130, 246, 0.05) !important;
+            box-shadow: 0 0 40px rgba(59, 130, 246, 0.2);
+        }
+        
+        /* Glassmorphism utilities */
+        .glass {
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
     </style>
 
     <!-- Tailwind CSS -->
@@ -16,161 +47,297 @@
         tailwind.config = {
             theme: {
                 extend: {
-                    fontFamily: {
-                        sans: ['"Google Sans Flex"', 'sans-serif'],
-                    },
-                    colors: {
-                        brand: '#3b82f6', // Modern Blue
-                    }
+                    colors: { brand: '#3b82f6', success: '#10b981', danger: '#ef4444' }
                 }
             }
         }
     </script>
 
-    <!-- WebRTC (PeerJS) & QR Code generation libraries -->
+    <!-- WebRTC & QR Libraries -->
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
-
-    <style>
-        /* Custom drag-and-drop glow animation */
-        .drag-active {
-            border-color: #3b82f6 !important;
-            background-color: rgba(59, 130, 246, 0.1) !important;
-            box-shadow: 0 0 40px rgba(59, 130, 246, 0.3);
-        }
-    </style>
 </head>
-<body class="bg-slate-950 text-slate-100 h-screen w-full flex flex-col overflow-hidden font-sans selection:bg-brand selection:text-white">
+<body class="bg-[#0b1120] text-slate-100 h-screen w-full flex flex-col overflow-hidden selection:bg-brand selection:text-white">
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed top-24 left-1/2 transform -translate-x-1/2 z-50 flex flex-col gap-2 pointer-events-none"></div>
 
     <!-- Navbar -->
-    <nav class="w-full p-6 flex justify-between items-center border-b border-slate-800 bg-slate-950/50 backdrop-blur-md fixed top-0 z-50">
-        <div class="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <svg class="w-8 h-8 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+    <nav class="w-full p-5 flex justify-between items-center glass fixed top-0 z-40">
+        <div class="text-2xl font-bold tracking-tight flex items-center gap-3 cursor-pointer" onclick="window.location.href = window.location.pathname">
+            <div class="bg-brand/20 p-2 rounded-xl text-brand">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+            </div>
             DropZone
         </div>
-        <div class="text-sm font-medium text-slate-400 bg-slate-900 px-4 py-2 rounded-full border border-slate-800">
-            Serverless P2P
+        <div class="flex items-center gap-4">
+            <span id="connection-status" class="flex items-center gap-2 text-sm font-medium text-slate-400">
+                <span class="relative flex h-2.5 w-2.5"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-slate-500 opacity-75"></span><span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-slate-500" id="status-dot"></span></span>
+                Initializing
+            </span>
         </div>
     </nav>
 
-    <!-- Main Content Area -->
+    <!-- Main Content -->
     <main class="flex-1 w-full h-full pt-20 flex flex-col items-center justify-center p-6 relative">
 
         <!-- STATE 1: UPLOAD (Sender) -->
-        <div id="state-upload" class="w-full max-w-5xl h-[70vh] flex flex-col transition-opacity duration-300">
-            <div class="text-center mb-8">
-                <h1 class="text-4xl md:text-6xl font-black mb-4 tracking-tighter">Share any file, directly.</h1>
-                <p class="text-lg text-slate-400">No servers. No limits. Direct device-to-device transfer.</p>
+        <div id="state-upload" class="hidden w-full max-w-4xl flex flex-col transition-all">
+            <div class="text-center mb-10">
+                <h1 class="text-5xl md:text-6xl font-black mb-4 tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400">Secure Direct Transfer.</h1>
+                <p class="text-lg text-slate-400 max-w-xl mx-auto">End-to-end encrypted. No servers, no file limits. Files stream directly from your device to theirs.</p>
             </div>
             
-            <label id="dropzone" class="flex-1 border-4 border-dashed border-slate-800 rounded-3xl flex flex-col items-center justify-center cursor-pointer transition-all duration-300 hover:border-slate-600 hover:bg-slate-900/50 group">
-                <div class="bg-slate-900 p-6 rounded-full mb-6 group-hover:scale-110 transition-transform duration-300 group-hover:bg-brand/20 group-hover:text-brand text-slate-400">
-                    <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+            <label id="dropzone" class="glass h-72 border-2 border-dashed border-slate-700 rounded-3xl flex flex-col items-center justify-center cursor-pointer transition-all duration-300 hover:border-brand hover:bg-slate-800/50 group">
+                <div class="bg-slate-800 p-5 rounded-2xl mb-4 group-hover:scale-110 transition-transform duration-300 group-hover:bg-brand/20 group-hover:text-brand text-slate-400">
+                    <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
                 </div>
-                <span class="text-2xl font-bold text-slate-300 group-hover:text-white transition-colors">Click or drag a file here</span>
-                <span class="text-slate-500 mt-2 font-medium">Supports any format & any size</span>
+                <span class="text-2xl font-bold text-slate-200 group-hover:text-white transition-colors">Click or drag a file here</span>
+                <span class="text-slate-500 mt-2 font-medium">Any format up to unlimited size</span>
                 <input type="file" id="file-input" class="hidden">
             </label>
         </div>
 
-        <!-- STATE 2: SHARE (Sender showing QR) -->
-        <div id="state-share" class="hidden w-full max-w-4xl flex flex-col items-center text-center">
-            <h2 class="text-3xl font-bold mb-2">Scan to Download</h2>
-            <p class="text-slate-400 mb-8 max-w-md">Point your phone's camera at this code. <strong class="text-brand">Do not close this tab</strong> until the transfer is complete.</p>
+        <!-- STATE 2: SHARE (Sender) -->
+        <div id="state-share" class="hidden w-full max-w-md flex flex-col items-center text-center glass p-8 rounded-3xl">
+            <h2 class="text-2xl font-bold mb-2">Scan to Download</h2>
+            <p class="text-sm text-slate-400 mb-6">Keep this tab open until the transfer finishes.</p>
             
-            <div class="bg-white p-6 rounded-3xl shadow-2xl mb-8">
-                <canvas id="qrcode" class="w-64 h-64"></canvas>
+            <div class="bg-white p-4 rounded-2xl shadow-2xl mb-6 relative group">
+                <canvas id="qrcode" class="w-56 h-56"></canvas>
             </div>
             
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 w-full max-w-lg flex items-center justify-between">
-                <div class="flex flex-col text-left truncate mr-4">
-                    <span class="text-xs text-slate-500 font-bold uppercase tracking-wider">File Selected</span>
-                    <span id="filename-display" class="font-medium text-slate-200 truncate">filename.mp4</span>
+            <button onclick="copyShareLink()" class="w-full flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 py-3 rounded-xl font-medium transition-colors mb-6">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
+                Copy Link instead
+            </button>
+
+            <div class="w-full flex items-center justify-between bg-slate-900/80 rounded-xl p-3 border border-slate-800">
+                <div class="flex items-center gap-3 overflow-hidden">
+                    <div class="bg-slate-800 p-2 rounded-lg"><svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg></div>
+                    <div class="text-left truncate">
+                        <p id="filename-display" class="font-medium text-slate-200 text-sm truncate w-32">file.txt</p>
+                        <p id="filesize-display" class="text-xs text-slate-500">0 MB</p>
+                    </div>
                 </div>
-                <div class="animate-pulse flex items-center gap-2 text-brand font-bold text-sm bg-brand/10 px-4 py-2 rounded-full">
-                    <div class="w-2 h-2 bg-brand rounded-full"></div>
+                <div class="flex items-center gap-2 text-brand font-bold text-xs bg-brand/10 px-3 py-1.5 rounded-full animate-pulse">
                     Waiting...
                 </div>
             </div>
         </div>
 
-        <!-- STATE 3: TRANSFERRING (Sender & Receiver) -->
-        <div id="state-transfer" class="hidden w-full max-w-2xl flex flex-col items-center justify-center text-center">
-            <h2 id="transfer-status" class="text-4xl md:text-5xl font-black mb-12 tracking-tighter">Connecting...</h2>
-            
-            <!-- Big Circular Progress or Bar -->
-            <div class="w-full bg-slate-900 border border-slate-800 rounded-full h-8 mb-4 overflow-hidden relative">
-                <div id="progress-bar" class="bg-brand h-full w-0 transition-all duration-200 relative">
-                    <div class="absolute inset-0 bg-white/20" style="background-image: linear-gradient(45deg, rgba(255,255,255,.15) 25%, transparent 25%, transparent 50%, rgba(255,255,255,.15) 50%, rgba(255,255,255,.15) 75%, transparent 75%, transparent); background-size: 1rem 1rem;"></div>
+        <!-- STATE 3: TRANSFERRING -->
+        <div id="state-transfer" class="hidden w-full max-w-2xl flex flex-col glass p-8 rounded-3xl">
+            <div class="flex justify-between items-end mb-8">
+                <div>
+                    <h2 id="transfer-status" class="text-3xl font-black tracking-tight text-white mb-1">Connecting...</h2>
+                    <p id="transfer-filename" class="text-slate-400 text-sm font-medium truncate max-w-xs">Preparing file</p>
+                </div>
+                <div class="text-right">
+                    <p id="transfer-speed" class="text-xl font-bold text-brand">-- MB/s</p>
+                    <p id="transfer-eta" class="text-slate-500 text-sm font-medium">Estimating time...</p>
                 </div>
             </div>
             
-            <div class="flex justify-between w-full text-slate-400 font-medium px-2">
+            <div class="w-full bg-slate-900 border border-slate-700 rounded-full h-6 mb-3 overflow-hidden relative shadow-inner">
+                <div id="progress-bar" class="bg-brand h-full w-0 transition-all duration-200 relative animated-stripe"></div>
+            </div>
+            
+            <div class="flex justify-between w-full text-slate-400 text-sm font-medium mb-8">
                 <span id="progress-text">0%</span>
                 <span id="progress-bytes">0 MB / 0 MB</span>
             </div>
+
+            <button onclick="cancelTransfer()" class="self-center flex items-center gap-2 text-danger hover:text-red-400 hover:bg-red-500/10 px-6 py-2 rounded-full font-bold transition-colors text-sm">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                Cancel Transfer
+            </button>
         </div>
 
-        <!-- STATE 4: DONE (Receiver) -->
-        <div id="state-done" class="hidden w-full max-w-lg flex flex-col items-center text-center">
-            <div class="bg-green-500/20 text-green-400 p-6 rounded-full mb-6">
-                <svg class="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+        <!-- STATE 4: DONE -->
+        <div id="state-done" class="hidden w-full max-w-md flex flex-col items-center text-center glass p-10 rounded-3xl">
+            <div class="bg-success/20 text-success p-5 rounded-full mb-6">
+                <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
             </div>
-            <h2 class="text-4xl font-black mb-4">Transfer Complete!</h2>
-            <p class="text-slate-400 mb-8">The file has been saved to your device.</p>
-            <button onclick="window.location.href = window.location.pathname" class="bg-slate-800 hover:bg-slate-700 text-white px-8 py-4 rounded-full font-bold transition-colors">
-                Transfer Another File
+            <h2 class="text-3xl font-black mb-2 text-white">Transfer Complete!</h2>
+            <p class="text-slate-400 mb-8">File safely received and saved.</p>
+            <button onclick="window.location.href = window.location.pathname" class="bg-brand hover:bg-blue-600 text-white px-8 py-3.5 rounded-xl font-bold transition-all shadow-lg shadow-brand/20">
+                Send Another File
+            </button>
+        </div>
+        
+        <!-- STATE 5: ERROR -->
+        <div id="state-error" class="hidden w-full max-w-md flex flex-col items-center text-center glass p-10 rounded-3xl border-red-500/30">
+            <div class="bg-danger/20 text-danger p-5 rounded-full mb-6">
+                <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+            </div>
+            <h2 class="text-3xl font-black mb-2 text-white" id="error-title">Connection Failed</h2>
+            <p class="text-slate-400 mb-8" id="error-msg">The connection was lost or the sender cancelled.</p>
+            <button onclick="window.location.href = window.location.pathname" class="bg-slate-800 hover:bg-slate-700 text-white px-8 py-3.5 rounded-xl font-bold transition-all">
+                Try Again
             </button>
         </div>
 
     </main>
 
     <script>
-        // --- UI Logic ---
+        // --- Security & Compatibility Check ---
+        if (!window.isSecureContext) {
+            alert("WebRTC requires a secure context. Please use HTTPS or localhost.");
+        }
+
+        // --- UI & Utility Logic ---
         const states = {
             upload: document.getElementById('state-upload'),
             share: document.getElementById('state-share'),
             transfer: document.getElementById('state-transfer'),
-            done: document.getElementById('state-done')
+            done: document.getElementById('state-done'),
+            error: document.getElementById('state-error')
         };
+        let currentState = null;
+        let isTransferringOrSharing = false;
 
         function showState(stateName) {
-            Object.values(states).forEach(el => el.classList.add('hidden'));
-            states[stateName].classList.remove('hidden');
+            Object.values(states).forEach(el => {
+                if(!el.classList.contains('hidden')) {
+                    el.classList.replace('fade-in', 'fade-out');
+                    setTimeout(() => el.classList.add('hidden'), 300);
+                }
+            });
+            setTimeout(() => {
+                states[stateName].classList.remove('hidden', 'fade-out');
+                states[stateName].classList.add('fade-in');
+            }, 300);
+            currentState = stateName;
+            isTransferringOrSharing = (stateName === 'share' || stateName === 'transfer');
         }
 
-        function formatBytes(bytes, decimals = 2) {
-            if (bytes === 0) return '0 Bytes';
+        function showToast(message, type = 'normal') {
+            const toast = document.createElement('div');
+            const bgColor = type === 'error' ? 'bg-danger' : 'bg-slate-800';
+            toast.className = `${bgColor} text-white px-6 py-3 rounded-full font-medium shadow-xl shadow-black/50 fade-in border border-white/10`;
+            toast.innerText = message;
+            document.getElementById('toast-container').appendChild(toast);
+            setTimeout(() => {
+                toast.classList.replace('fade-in', 'fade-out');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
             const k = 1024;
-            const dm = decimals < 0 ? 0 : decimals;
-            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+            const sizes = ['B', 'KB', 'MB', 'GB'];
             const i = Math.floor(Math.log(bytes) / Math.log(k));
-            return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
         }
 
-        // --- WebRTC & Application Logic ---
+        function sanitizeFilename(name) {
+            // Prevent path traversal and remove malicious characters
+            return name.replace(/[^a-zA-Z0-9.\-_ ()]/g, '_');
+        }
+
+        // --- Warn before closing tab ---
+        window.addEventListener('beforeunload', (e) => {
+            if (isTransferringOrSharing) {
+                e.preventDefault();
+                e.returnValue = 'Transfer in progress. Are you sure you want to leave?';
+            }
+        });
+
+        // --- WebRTC Logic ---
         let peer = null;
         let connection = null;
         let fileToShare = null;
-        const CHUNK_SIZE = 256 * 1024; // 256KB chunks (safe for WebRTC limits)
+        const CHUNK_SIZE = 256 * 1024; // 256KB chunks
+        let shareUrl = "";
+        
+        // Metrics state
+        let startTime = 0;
+        let lastUpdateTime = 0;
+        let bytesSinceLastUpdate = 0;
 
-        // Check if user is the Receiver (has ?peer=xxx in URL)
+        // URL Params to detect Receiver
         const urlParams = new URLSearchParams(window.location.search);
         const connectToId = urlParams.get('peer');
 
-        if (connectToId) {
-            // ----- RECEIVER MODE -----
-            showState('transfer');
-            document.getElementById('transfer-status').innerText = "Finding sender...";
-            
-            peer = new Peer(); // Initialize receiver peer
+        function updateNetworkStatus(status, colorClass) {
+            document.getElementById('status-dot').className = `relative inline-flex rounded-full h-2.5 w-2.5 bg-${colorClass}`;
+            document.getElementById('status-dot').previousElementSibling.className = `animate-ping absolute inline-flex h-full w-full rounded-full bg-${colorClass} opacity-75`;
+            document.getElementById('connection-status').childNodes[2].nodeValue = " " + status;
+        }
 
-            peer.on('open', () => {
-                document.getElementById('transfer-status').innerText = "Requesting connection...";
+        function triggerError(title, msg) {
+            document.getElementById('error-title').innerText = title;
+            document.getElementById('error-msg').innerText = msg;
+            showState('error');
+            if(connection) connection.close();
+            isTransferringOrSharing = false;
+        }
+
+        function cancelTransfer() {
+            if (connection) {
+                connection.send({ type: 'cancel' });
+                setTimeout(() => connection.close(), 500);
+            }
+            triggerError("Transfer Cancelled", "You aborted the file transfer.");
+        }
+
+        function copyShareLink() {
+            navigator.clipboard.writeText(shareUrl).then(() => showToast('Link copied to clipboard!'));
+        }
+
+        function calculateMetrics(currentBytes, totalBytes) {
+            const now = Date.now();
+            if (now - lastUpdateTime > 1000) { // Update stats every 1 second
+                const elapsedSec = (now - startTime) / 1000;
+                
+                // Speed (MB/s)
+                const speedBps = bytesSinceLastUpdate / ((now - lastUpdateTime) / 1000);
+                const speedMbps = (speedBps / (1024 * 1024)).toFixed(1);
+                document.getElementById('transfer-speed').innerText = `${speedMbps} MB/s`;
+
+                // ETA
+                const remainingBytes = totalBytes - currentBytes;
+                const overallSpeed = currentBytes / elapsedSec;
+                if (overallSpeed > 0) {
+                    let etaSec = Math.round(remainingBytes / overallSpeed);
+                    if (etaSec > 60) {
+                        document.getElementById('transfer-eta').innerText = `${Math.floor(etaSec/60)}m ${etaSec%60}s left`;
+                    } else {
+                        document.getElementById('transfer-eta').innerText = `${etaSec}s left`;
+                    }
+                }
+
+                lastUpdateTime = now;
+                bytesSinceLastUpdate = 0;
+            }
+        }
+
+        function updateProgressUI(current, total) {
+            bytesSinceLastUpdate += CHUNK_SIZE;
+            const percent = Math.min(100, Math.round((current / total) * 100));
+            document.getElementById('progress-bar').style.width = percent + '%';
+            document.getElementById('progress-text').innerText = percent + '%';
+            document.getElementById('progress-bytes').innerText = `${formatBytes(current)} / ${formatBytes(total)}`;
+            calculateMetrics(current, total);
+        }
+
+        // INIT PEERJS
+        peer = new Peer({ debug: 1 });
+
+        peer.on('open', (id) => {
+            updateNetworkStatus("Ready", "success");
+            
+            if (connectToId) {
+                // --- RECEIVER LOGIC ---
+                showState('transfer');
+                document.getElementById('transfer-status').innerText = "Connecting...";
+                
                 connection = peer.connect(connectToId, { reliable: true });
 
                 connection.on('open', () => {
-                    document.getElementById('transfer-status').innerText = "Connected! Waiting for file...";
+                    document.getElementById('transfer-status').innerText = "Awaiting File...";
                 });
 
                 let receivedBuffers = [];
@@ -179,143 +346,158 @@
 
                 connection.on('data', (data) => {
                     if (data.type === 'header') {
-                        // 1. Receive file details
                         fileMeta = data;
+                        fileMeta.name = sanitizeFilename(fileMeta.name); // Sanitize on receipt
                         receivedBuffers = [];
                         receivedSize = 0;
-                        document.getElementById('transfer-status').innerText = `Downloading...`;
+                        startTime = Date.now();
+                        lastUpdateTime = startTime;
                         
-                        // Ask sender for first chunk
+                        document.getElementById('transfer-status').innerText = `Downloading`;
+                        document.getElementById('transfer-filename').innerText = fileMeta.name;
                         connection.send({ type: 'ack-header' });
                     } 
                     else if (data.type === 'chunk') {
-                        // 2. Receive file piece
                         receivedBuffers.push(data.data);
                         receivedSize += data.data.byteLength;
-                        
                         updateProgressUI(receivedSize, fileMeta.size);
-
-                        // Ask sender for next chunk
                         connection.send({ type: 'ack-chunk' });
                     } 
                     else if (data.type === 'done') {
-                        // 3. File is fully received, assemble and download
-                        document.getElementById('transfer-status').innerText = "Processing file...";
+                        document.getElementById('transfer-status').innerText = "Assembling...";
                         const blob = new Blob(receivedBuffers, { type: fileMeta.filetype });
-                        downloadBlob(blob, fileMeta.name);
+                        const url = window.URL.createObjectURL(blob);
+                        
+                        const a = document.createElement('a');
+                        a.style.display = 'none';
+                        a.href = url;
+                        a.download = fileMeta.name;
+                        document.body.appendChild(a);
+                        a.click();
+                        window.URL.revokeObjectURL(url);
+                        
+                        isTransferringOrSharing = false;
                         showState('done');
                         peer.destroy();
+                    }
+                    else if (data.type === 'cancel') {
+                        triggerError("Cancelled", "The sender cancelled the transfer.");
                     }
                 });
                 
                 connection.on('close', () => {
-                    if(receivedSize < (fileMeta?.size || 1)) alert("Connection lost before download finished.");
-                });
-            });
-
-        } else {
-            // ----- SENDER MODE -----
-            peer = new Peer(); // Initialize sender peer
-
-            // Handle file selection
-            const fileInput = document.getElementById('file-input');
-            const dropzone = document.getElementById('dropzone');
-
-            // Drag and Drop Effects
-            dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag-active'); });
-            dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-active'));
-            dropzone.addEventListener('drop', e => {
-                e.preventDefault();
-                dropzone.classList.remove('drag-active');
-                if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
-            });
-            fileInput.addEventListener('change', e => {
-                if (e.target.files.length) handleFile(e.target.files[0]);
-            });
-
-            function handleFile(file) {
-                fileToShare = file;
-                document.getElementById('filename-display').innerText = file.name;
-                showState('share');
-
-                // Generate Share URL and QR Code
-                const shareUrl = window.location.href.split('?')[0] + '?peer=' + peer.id;
-                
-                new QRious({
-                    element: document.getElementById('qrcode'),
-                    value: shareUrl,
-                    size: 300,
-                    level: 'H',
-                    foreground: '#0f172a'
-                });
-            }
-
-            // Listen for phone connecting to us
-            peer.on('connection', (conn) => {
-                connection = conn;
-                
-                connection.on('open', () => {
-                    showState('transfer');
-                    document.getElementById('transfer-status').innerText = "Sending file...";
-                    
-                    // 1. Send file details to receiver
-                    connection.send({
-                        type: 'header',
-                        name: fileToShare.name,
-                        filetype: fileToShare.type,
-                        size: fileToShare.size
-                    });
-                });
-
-                let offset = 0;
-
-                // Listen for 'acks' (acknowledgments) from receiver before sending next chunk
-                // This prevents browser memory crashes on huge files
-                connection.on('data', (data) => {
-                    if (data.type === 'ack-header' || data.type === 'ack-chunk') {
-                        if (offset < fileToShare.size) {
-                            readAndSendChunk();
-                        } else {
-                            // File complete
-                            connection.send({ type: 'done' });
-                            document.getElementById('transfer-status').innerText = "Sent successfully!";
-                            setTimeout(() => { window.location.reload(); }, 3000);
-                        }
+                    if(currentState === 'transfer' && receivedSize < (fileMeta?.size || 1)) {
+                        triggerError("Connection Lost", "The sender disconnected before completion.");
                     }
                 });
 
-                function readAndSendChunk() {
-                    const slice = fileToShare.slice(offset, offset + CHUNK_SIZE);
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        connection.send({ type: 'chunk', data: e.target.result });
-                        offset += e.target.result.byteLength;
-                        updateProgressUI(offset, fileToShare.size);
-                    };
-                    reader.readAsArrayBuffer(slice);
+                connection.on('error', () => triggerError("Error", "A peer-to-peer connection error occurred."));
+            } else {
+                // --- SENDER LOGIC ---
+                showState('upload');
+                
+                const dropzone = document.getElementById('dropzone');
+                const fileInput = document.getElementById('file-input');
+
+                dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag-active'); });
+                dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-active'));
+                dropzone.addEventListener('drop', e => {
+                    e.preventDefault();
+                    dropzone.classList.remove('drag-active');
+                    if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+                });
+                fileInput.addEventListener('change', e => {
+                    if (e.target.files.length) handleFile(e.target.files[0]);
+                });
+
+                function handleFile(file) {
+                    fileToShare = file;
+                    document.getElementById('filename-display').innerText = file.name;
+                    document.getElementById('filesize-display').innerText = formatBytes(file.size);
+                    showState('share');
+
+                    shareUrl = window.location.href.split('?')[0] + '?peer=' + peer.id;
+                    
+                    new QRious({
+                        element: document.getElementById('qrcode'),
+                        value: shareUrl,
+                        size: 250,
+                        level: 'H',
+                        foreground: '#0f172a'
+                    });
                 }
-            });
-        }
 
-        // --- Shared Utilities ---
-        function updateProgressUI(current, total) {
-            const percent = Math.min(100, Math.round((current / total) * 100));
-            document.getElementById('progress-bar').style.width = percent + '%';
-            document.getElementById('progress-text').innerText = percent + '%';
-            document.getElementById('progress-bytes').innerText = `${formatBytes(current)} / ${formatBytes(total)}`;
-        }
+                peer.on('connection', (conn) => {
+                    connection = conn;
+                    
+                    connection.on('open', () => {
+                        showState('transfer');
+                        document.getElementById('transfer-status').innerText = "Sending";
+                        document.getElementById('transfer-filename').innerText = fileToShare.name;
+                        
+                        startTime = Date.now();
+                        lastUpdateTime = startTime;
 
-        function downloadBlob(blob, filename) {
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.style.display = 'none';
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
-        }
+                        connection.send({
+                            type: 'header',
+                            name: fileToShare.name,
+                            filetype: fileToShare.type,
+                            size: fileToShare.size
+                        });
+                    });
+
+                    let offset = 0;
+
+                    connection.on('data', (data) => {
+                        if (data.type === 'ack-header' || data.type === 'ack-chunk') {
+                            if (offset < fileToShare.size) {
+                                const slice = fileToShare.slice(offset, offset + CHUNK_SIZE);
+                                const reader = new FileReader();
+                                reader.onload = (e) => {
+                                    connection.send({ type: 'chunk', data: e.target.result });
+                                    offset += e.target.result.byteLength;
+                                    updateProgressUI(offset, fileToShare.size);
+                                };
+                                reader.readAsArrayBuffer(slice);
+                            } else {
+                                connection.send({ type: 'done' });
+                                document.getElementById('transfer-status').innerText = "Sent!";
+                                document.getElementById('transfer-speed').innerText = "";
+                                document.getElementById('transfer-eta').innerText = "";
+                                isTransferringOrSharing = false;
+                                setTimeout(() => showState('done'), 1000);
+                            }
+                        }
+                        else if (data.type === 'cancel') {
+                            triggerError("Cancelled", "The receiver cancelled the download.");
+                        }
+                    });
+
+                    connection.on('close', () => {
+                        if(currentState === 'transfer' && offset < fileToShare.size) {
+                            triggerError("Connection Lost", "The receiver disconnected early.");
+                        }
+                    });
+                });
+            }
+        });
+
+        // Global Peer Error Handling
+        peer.on('error', (err) => {
+            console.error(err);
+            updateNetworkStatus("Disconnected", "danger");
+            if (err.type === 'network' || err.type === 'server-error') {
+                triggerError("Signaling Server Error", "Could not connect to the matchmaking server.");
+            } else if (err.type === 'peer-unavailable') {
+                triggerError("Invalid Link", "The sender is no longer available or the link is invalid.");
+            } else {
+                showToast("An unexpected error occurred.", "error");
+            }
+        });
+
+        peer.on('disconnected', () => {
+            updateNetworkStatus("Offline", "danger");
+        });
     </script>
 </body>
 </html>
