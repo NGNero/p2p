@@ -105,7 +105,7 @@ class SWManager {
     if (!('serviceWorker' in navigator)) return;
     try {
       // Register the external SW file
-      this.reg = await navigator.serviceWorker.register('./dropzone-sw.js', { scope: '/' });
+      this.reg = await navigator.serviceWorker.register('./p2p/dropzone-sw.js', { scope: '/p2p/' })
       await navigator.serviceWorker.ready;
       this.active = !!navigator.serviceWorker.controller;
       // If controller isn't ready yet, listen for it
