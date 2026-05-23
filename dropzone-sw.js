@@ -38,17 +38,25 @@ self.addEventListener('message', (event) => {
     }
   });
 
-  const safeFilename = encodeURIComponent(filename).replace(/['"\\]/g, '_');
+  const safeFilename = encodeURIComponent(filename).replace(/['"\\\\]/g, '_');
 
   downloads.set(downloadId, { stream, filename: safeFilename, filetype, size });
-  event.source.postMessage({ type: 'REGISTERED', downloadId });
+  
+  // FIX: Respond directly through the MessageChannel port so the client's promise resolves
+  port.postMessage({ type: 'REGISTERED', downloadId });
 });
 
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
-  if (!url.pathname.startsWith('/__dz_dl/')) return;
+  
+  // FIX: Use .includes() instead of .startsWith() so it supports subfolders gracefully
+  if (!url.pathname.includes('/__dz_dl/')) return;
 
-  const id = url.pathname.replace('/__dz_dl/', '');
+  // Extract the transfer ID from the path segment
+  const matches = url.pathname.match(/\/__dz_dl\/([^\/]+)/);
+  if (!matches) return;
+  
+  const id = matches[1];
   const dl = downloads.get(id);
   if (!dl) return;
 
@@ -56,10 +64,9 @@ self.addEventListener('fetch', (event) => {
   const headers = {
     'Content-Type': contentType,
     'Content-Disposition': `attachment; filename="${dl.filename}"; filename*=UTF-8''${dl.filename}`,
-    'X-Content-Type-Options': 'nosniff',
-    'Cache-Control': 'no-store',
+    'Content-Length': dl.size,
+    'X-Content-Type-Options': 'nosniff'
   };
-  if (dl.size > 0) headers['Content-Length'] = String(dl.size);
 
   event.respondWith(new Response(dl.stream, { headers }));
 });
