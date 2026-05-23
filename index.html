@@ -1,291 +1,477 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="h-full">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="DropZone — Direct peer-to-peer file and text transfer in your browser.">
-<title>DropZone — P2P Transfer</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css">
-<script src="https://cdn.tailwindcss.com"></script>
-<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
-<script>
-tailwind.config = {
-  theme: {
-    extend: {
-      colors: {
-        brand: '#a8c7fa',
-        bg: '#0e0e0f',
-        panel: '#171717',
-        surface: '#1f1e1e',
-        input: '#252525',
-        success: '#34d399',
-        danger: '#f87171',
-        warning: '#fbbf24',
-      },
-      fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-      },
-      animation: {
-        'fade-in': 'fadeIn 0.2s ease-out forwards',
-        'slide-up': 'slideUp 0.3s ease-out forwards',
-      },
-      keyframes: {
-        fadeIn: {
-          '0%': { opacity: '0', transform: 'translateY(4px)' },
-          '100%': { opacity: '1', transform: 'translateY(0)' },
-        },
-        slideUp: {
-          '0%': { opacity: '0', transform: 'translateY(8px)' },
-          '100%': { opacity: '1', transform: 'translateY(0)' },
-        },
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="DropZone — Direct peer-to-peer file and text transfer in your browser. No servers. No cloud. Private.">
+  <meta name="theme-color" content="#0e0e0f">
+  <title>DropZone — P2P Transfer</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+
+  <!-- Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css">
+
+  <!-- Tailwind CDN with config -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"DM Sans"', 'system-ui', 'sans-serif'],
+          },
+          colors: {
+            brand:   '#a8c7fa',
+            bg:      '#0e0e0f',
+            panel:   '#161617',
+            surface: '#1f1e1e',
+            input:   '#252525',
+            success: '#34d399',
+            danger:  '#f87171',
+            warning: '#fbbf24',
+          },
+          animation: {
+            'fade-in':  'fadeIn 0.2s ease-out forwards',
+            'slide-up': 'slideUp 0.28s ease-out forwards',
+            'pulse-soft': 'pulseSoft 2s ease-in-out infinite',
+          },
+          keyframes: {
+            fadeIn:     { '0%': { opacity: '0', transform: 'translateY(5px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+            slideUp:    { '0%': { opacity: '0', transform: 'translateY(10px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+            pulseSoft:  { '0%,100%': { opacity: '0.5' }, '50%': { opacity: '1' } },
+          },
+        }
       }
-    }
-  }
-}
-</script>
-<style>
-  ::-webkit-scrollbar { width: 6px; height: 6px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
-</style>
+    };
+  </script>
+
+  <!-- PeerJS & QRious -->
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js" defer></script>
 </head>
-<body class="bg-bg text-slate-100 font-sans antialiased min-h-screen flex selection:bg-brand/30 selection:text-brand">
 
-<!-- Sidebar -->
-<<aside class="w-64 bg-panel border-r border-white/[0.04] flex flex-col fixed h-full z-30">
-  <div class="p-5 flex items-center gap-3">
-    <div class="bg-brand/10 text-brand p-2 rounded-xl">
-      <i class="ph ph-lightning text-xl" aria-hidden="true"></i>
-    </div>
-    <span class="text-lg font-bold tracking-tight">DropZone</span>
-  </div>
+<body class="bg-bg text-slate-100 font-sans antialiased h-full overflow-hidden selection:bg-brand/30 selection:text-brand">
 
-  <nav class="flex-1 px-3 space-y-1">
-    <button data-panel="send" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:bg-surface hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
-      <i class="ph ph-export text-lg" aria-hidden="true"></i> Send
-    </button>
-    <button data-panel="receive" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:bg-surface hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
-      <i class="ph ph-import text-lg" aria-hidden="true"></i> Receive
-    </button>
-    <button data-panel="help" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:bg-surface hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
-      <i class="ph ph-question text-lg" aria-hidden="true"></i> Help
-    </button>
-    <button data-panel="settings" class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:bg-surface hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
-      <i class="ph ph-gear text-lg" aria-hidden="true"></i> Settings
-    </button>
-  </nav>
+  <!-- ======================================================
+       LAYOUT WRAPPER
+  ====================================================== -->
+  <div class="flex h-full">
 
-  <!-- Topology -->
-  <div class="p-4 border-t border-white/[0.04]">
-    <p class="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-3">Connection</p>
-    <div class="relative h-20 w-full flex items-center justify-center">
-      <svg width="140" height="80" viewBox="0 0 140 80" class="overflow-visible">
-        <defs>
-          <linearGradient id="lineGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stop-color="rgba(168,199,250,0)" />
-            <stop offset="50%" stop-color="rgba(168,199,250,0.6)" />
-            <stop offset="100%" stop-color="rgba(168,199,250,0)" />
-          </linearGradient>
-        </defs>
-        <line x1="20" y1="40" x2="120" y2="40" stroke="rgba(255,255,255,0.08)" stroke-width="2" stroke-linecap="round" />
-        <line id="topo-active-line" x1="20" y1="40" x2="20" y2="40" stroke="url(#lineGrad)" stroke-width="2" stroke-linecap="round" class="transition-all duration-500" />
-        <circle id="topo-you" cx="20" cy="40" r="6" class="fill-slate-600 transition-colors duration-300" />
-        <circle id="topo-peer" cx="120" cy="40" r="6" class="fill-slate-600 transition-colors duration-300" />
-        <circle id="topo-packet" cx="20" cy="40" r="3" class="fill-brand hidden" />
-        <text x="20" y="60" text-anchor="middle" class="fill-slate-500 text-[9px]">You</text>
-        <text x="120" y="60" text-anchor="middle" class="fill-slate-500 text-[9px]">Peer</text>
-      </svg>
-    </div>
-    <div id="topo-status" class="text-center text-[11px] text-slate-500 mt-1">Idle</div>
-  </div>
-</aside>
-
-<!-- Main -->
-<<main class="flex-1 ml-64 min-h-screen flex flex-col relative">
-
-  <!-- Toast -->
-  <div id="toast-container" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-2 pointer-events-none w-full max-w-sm px-4"></div>
-
-  <!-- Send Panel -->
-  <section id="panel-send" class="panel flex-1 p-8 max-w-3xl mx-auto w-full animate-fade-in">
-    <h1 class="text-2xl font-bold mb-1">Send files or text</h1>
-    <p class="text-slate-500 text-sm mb-6">Select content to share. A direct link will be created for your peer.</p>
-
-    <div class="flex gap-2 mb-4">
-      <button id="tab-files" class="tab-btn active px-4 py-2 rounded-xl text-sm font-medium bg-surface text-white border border-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">Files</button>
-      <button id="tab-text" class="tab-btn px-4 py-2 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-surface transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">Text</button>
-    </div>
-
-    <div id="view-files" class="tab-view">
-      <label id="dropzone" class="bg-panel border-2 border-dashed border-white/[0.08] hover:border-brand/40 rounded-3xl flex flex-col items-center justify-center cursor-pointer transition-all duration-200 min-h-[180px] group focus-within:border-brand/40 focus-within:ring-2 focus-within:ring-brand/20">
-        <div class="bg-surface/60 p-3 rounded-2xl mb-3 group-hover:scale-105 transition-transform text-slate-500 group-hover:text-brand">
-          <i class="ph ph-upload-simple text-2xl" aria-hidden="true"></i>
+    <!-- ====================================================
+         SIDEBAR — hidden on mobile, visible md+
+    ==================================================== -->
+    <aside
+      id="mobile-sidebar"
+      data-open="false"
+      aria-label="Main navigation"
+      class="
+        fixed inset-y-0 left-0 z-40 flex flex-col w-64
+        bg-panel border-r border-white/[0.04]
+        -translate-x-full md:translate-x-0 transition-transform duration-300 ease-out
+        data-[open=true]:translate-x-0
+      "
+    >
+      <!-- Logo -->
+      <div class="p-5 flex items-center gap-3 border-b border-white/[0.04] shrink-0">
+        <div class="bg-brand/10 text-brand p-2 rounded-xl shrink-0" aria-hidden="true">
+          <i class="ph ph-lightning text-xl"></i>
         </div>
-        <span class="text-sm font-semibold text-slate-300 group-hover:text-white transition-colors">Drop files or click to browse</span>
-        <span class="text-slate-600 mt-1 text-xs">Up to 50 files · 2 GB each · 5 GB total</span>
-        <input type="file" id="file-input" class="sr-only" multiple>
-      </label>
-
-      <div id="file-list-container" class="hidden mt-4 bg-panel border border-white/[0.05] rounded-3xl overflow-hidden">
-        <div class="px-4 py-3 flex justify-between items-center border-b border-white/[0.04]">
-          <span id="file-count-label" class="text-xs font-semibold text-slate-400">0 files</span>
-          <button id="clear-files-btn" class="text-xs text-slate-500 hover:text-danger flex items-center gap-1.5 p-1.5 rounded-xl hover:bg-danger/5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50">
-            <i class="ph ph-trash text-sm" aria-hidden="true"></i> Clear
-          </button>
-        </div>
-        <div id="file-list" class="max-h-48 overflow-y-auto" role="list"></div>
-        <div class="px-4 py-3 flex justify-between items-center border-t border-white/[0.04]">
-          <span id="total-size-label" class="text-xs text-slate-500">—</span>
-          <button id="confirm-files-btn" class="bg-brand hover:bg-brand/85 text-bg font-semibold px-5 py-2 rounded-2xl text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60">Continue</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="view-text" class="tab-view hidden">
-      <div class="bg-panel border border-white/[0.05] rounded-3xl p-4">
-        <textarea id="text-input" rows="6" class="w-full bg-input border border-white/[0.06] rounded-2xl px-4 py-3 text-sm text-slate-200 placeholder-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 resize-none" placeholder="Type or paste text to send..."></textarea>
-        <div class="flex justify-end mt-3">
-          <button id="confirm-text-btn" class="bg-brand hover:bg-brand/85 text-bg font-semibold px-5 py-2 rounded-2xl text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60">Continue</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Share Link View -->
-    <div id="share-view" class="hidden mt-6 bg-panel border border-white/[0.05] p-6 rounded-3xl flex flex-col items-center gap-5">
-      <h2 class="text-xl font-bold">Share this link</h2>
-      <div class="bg-white p-3 rounded-2xl shadow-xl">
-        <canvas id="qrcode" class="w-44 h-44 rounded-xl block"></canvas>
-      </div>
-      <div class="w-full flex gap-2">
-        <button id="copy-link-btn" class="flex-1 flex items-center justify-center gap-2 bg-surface hover:bg-input text-slate-200 py-2.5 rounded-2xl text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
-          <i class="ph ph-link text-base" aria-hidden="true"></i> Copy Link
-        </button>
-        <button id="copy-key-btn" class="flex-1 flex items-center justify-center gap-2 bg-surface hover:bg-input text-slate-200 py-2.5 rounded-2xl text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
-          <i class="ph ph-key text-base" aria-hidden="true"></i> Copy Key
-        </button>
-      </div>
-      <div class="w-full bg-surface/50 rounded-2xl px-3.5 py-3 flex items-center justify-between">
-        <div class="flex items-center gap-2">
-          <i class="ph ph-shield-check text-brand" aria-hidden="true"></i>
-          <span id="security-badge-text" class="text-xs text-slate-400">Standard WebRTC</span>
-        </div>
-        <span class="flex items-center gap-1.5 text-brand text-[11px] font-semibold bg-brand/10 px-2.5 py-1 rounded-xl">
-          <i class="ph ph-spinner animate-spin text-xs" aria-hidden="true"></i> Waiting
-        </span>
-      </div>
-      <button id="cancel-share-btn" class="text-xs text-slate-500 hover:text-danger transition-colors">Cancel</button>
-    </div>
-  </section>
-
-  <!-- Receive Panel -->
-  <section id="panel-receive" class="panel hidden flex-1 p-8 max-w-3xl mx-auto w-full animate-fade-in">
-    <h1 class="text-2xl font-bold mb-1">Receive</h1>
-    <p class="text-slate-500 text-sm mb-6">Paste a DropZone link to connect directly to the sender.</p>
-    <div id="receive-paste" class="bg-panel border border-white/[0.05] rounded-3xl p-6 flex flex-col gap-4">
-      <input id="receive-url-input" type="text" placeholder="https://example.com/?peer=..." class="w-full bg-input border border-white/[0.06] rounded-2xl px-4 py-3 text-sm text-slate-200 placeholder-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
-      <button id="connect-btn" class="bg-brand hover:bg-brand/85 text-bg font-semibold px-5 py-2.5 rounded-2xl text-sm transition-all self-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60">Connect</button>
-    </div>
-    <div id="receive-status" class="hidden mt-4 text-sm text-slate-400"></div>
-  </section>
-
-  <!-- Help Panel -->
-  <section id="panel-help" class="panel hidden flex-1 p-8 max-w-3xl mx-auto w-full animate-fade-in space-y-6">
-    <h1 class="text-2xl font-bold mb-4">How DropZone works</h1>
-    <div class="bg-panel border border-white/[0.05] rounded-3xl p-5 space-y-3">
-      <h3 class="font-semibold text-white flex items-center gap-2"><i class="ph ph-globe text-brand" aria-hidden="true"></i> Peer-to-Peer</h3>
-      <p class="text-sm text-slate-400 leading-relaxed">Files travel directly between browsers using WebRTC. A lightweight signaling server helps you find each other, then steps aside. Your data never touches the cloud.</p>
-    </div>
-    <div class="bg-panel border border-white/[0.05] rounded-3xl p-5 space-y-3">
-      <h3 class="font-semibold text-white flex items-center gap-2"><i class="ph ph-lock-key text-brand" aria-hidden="true"></i> Security modes</h3>
-      <p class="text-sm text-slate-400 leading-relaxed"><strong class="text-slate-200">Standard</strong> uses WebRTC's built-in DTLS encryption—secure for most transfers with zero friction. <strong class="text-slate-200">AES-256-GCM</strong> adds an additional end-to-end layer. The key lives only in your URL hash and is never sent to the server.</p>
-    </div>
-    <div class="bg-panel border border-white/[0.05] rounded-3xl p-5 space-y-3">
-      <h3 class="font-semibold text-white flex items-center gap-2"><i class="ph ph-arrows-left-right text-brand" aria-hidden="true"></i> Adaptive chunks</h3>
-      <p class="text-sm text-slate-400 leading-relaxed">Instead of guessing a chunk size, DropZone measures your connection in real time and adjusts packet size and window automatically. This keeps memory low and speed high.</p>
-    </div>
-    <div class="bg-panel border border-white/[0.05] rounded-3xl p-5 space-y-3">
-      <h3 class="font-semibold text-white flex items-center gap-2"><i class="ph ph-hard-drives text-brand" aria-hidden="true"></i> Large files</h3>
-      <p class="text-sm text-slate-400 leading-relaxed">A Service Worker streams incoming data straight to disk. You can receive multi-gigabyte files without running out of RAM.</p>
-    </div>
-  </section>
-
-  <!-- Settings Panel -->
-  <section id="panel-settings" class="panel hidden flex-1 p-8 max-w-3xl mx-auto w-full animate-fade-in space-y-6">
-    <h1 class="text-2xl font-bold mb-4">Settings</h1>
-
-    <div class="bg-panel border border-white/[0.05] rounded-3xl p-5 space-y-4">
-      <div>
-        <label class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-2">Security Mode</label>
-        <div class="relative">
-          <select id="setting-security" class="w-full bg-input border border-white/[0.06] rounded-2xl px-3.5 py-2.5 text-sm text-slate-200 appearance-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 cursor-pointer pr-8">
-            <option value="standard">Standard (WebRTC DTLS)</option>
-            <option value="aes">AES-256-GCM (End-to-end)</option>
-          </select>
-          <i class="ph ph-caret-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs pointer-events-none" aria-hidden="true"></i>
-        </div>
-        <p class="text-xs text-slate-500 mt-2">Standard is fastest and requires no key management. AES adds a second encryption layer using a key shared via the URL hash.</p>
-      </div>
-
-      <div class="h-px bg-white/[0.05]"></div>
-
-      <div>
-        <label class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-2">Chunk Strategy</label>
-        <div class="relative">
-          <select id="setting-chunk" class="w-full bg-input border border-white/[0.06] rounded-2xl px-3.5 py-2.5 text-sm text-slate-200 appearance-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 cursor-pointer pr-8">
-            <option value="adaptive">Adaptive (recommended)</option>
-            <option value="16k">Fixed 16 KB</option>
-            <option value="32k">Fixed 32 KB</option>
-            <option value="64k">Fixed 64 KB</option>
-            <option value="128k">Fixed 128 KB</option>
-          </select>
-          <i class="ph ph-caret-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs pointer-events-none" aria-hidden="true"></i>
-        </div>
-        <p class="text-xs text-slate-500 mt-2">Adaptive adjusts chunk size and window based on real-time latency. Fixed is useful for testing specific network conditions.</p>
-      </div>
-
-      <div class="h-px bg-white/[0.05]"></div>
-
-      <div class="flex items-center justify-between">
         <div>
-          <p class="text-sm text-slate-300 font-medium">Auto-download</p>
-          <p class="text-[11px] text-slate-500 mt-0.5">Automatically save files when a transfer completes. Browsers may block multiple pop-ups.</p>
+          <span class="text-lg font-bold tracking-tight leading-none block">DropZone</span>
+          <span class="text-[10px] text-slate-500 font-medium tracking-wider">P2P TRANSFER</span>
         </div>
-        <button id="setting-autodl" role="switch" aria-checked="false" class="relative w-10 h-5 rounded-full bg-surface border border-white/[0.08] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
-          <span id="setting-autodl-knob" class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-slate-500 transition-all duration-200"></span>
+      </div>
+
+      <!-- Nav links -->
+      <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto" aria-label="Sections">
+        <button data-panel="send" aria-current="page"
+          class="nav-btn bg-surface text-white w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
+          <i class="ph ph-paper-plane-tilt text-lg" aria-hidden="true"></i>
+          Send
         </button>
+        <button data-panel="receive"
+          class="nav-btn text-slate-400 hover:bg-surface hover:text-white w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
+          <i class="ph ph-download-simple text-lg" aria-hidden="true"></i>
+          Receive
+        </button>
+        <button data-panel="help"
+          class="nav-btn text-slate-400 hover:bg-surface hover:text-white w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
+          <i class="ph ph-question text-lg" aria-hidden="true"></i>
+          Help
+        </button>
+        <button data-panel="settings"
+          class="nav-btn text-slate-400 hover:bg-surface hover:text-white w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
+          <i class="ph ph-gear text-lg" aria-hidden="true"></i>
+          Settings
+        </button>
+      </nav>
+
+      <!-- Connection topology -->
+      <div class="p-4 border-t border-white/[0.04] shrink-0" aria-live="polite" aria-label="Connection status">
+        <p class="text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-3">Connection</p>
+        <div class="relative h-20 w-full flex items-center justify-center">
+          <svg width="140" height="80" viewBox="0 0 140 80" aria-hidden="true" class="overflow-visible">
+            <defs>
+              <linearGradient id="lineGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%"   stop-color="rgba(168,199,250,0)"/>
+                <stop offset="50%"  stop-color="rgba(168,199,250,0.6)"/>
+                <stop offset="100%" stop-color="rgba(168,199,250,0)"/>
+              </linearGradient>
+            </defs>
+            <line x1="20" y1="40" x2="120" y2="40" stroke="rgba(255,255,255,0.07)" stroke-width="2" stroke-linecap="round"/>
+            <line id="topo-active-line" x1="20" y1="40" x2="20" y2="40" stroke="url(#lineGrad)" stroke-width="2" stroke-linecap="round" class="transition-all duration-500"/>
+            <circle id="topo-you"    cx="20"  cy="40" r="6" class="fill-slate-600 transition-colors duration-300"/>
+            <circle id="topo-peer"   cx="120" cy="40" r="6" class="fill-slate-600 transition-colors duration-300"/>
+            <circle id="topo-packet" cx="20"  cy="40" r="3" class="fill-brand hidden"/>
+            <text x="20"  y="60" text-anchor="middle" class="fill-slate-500 text-[9px]" font-family="DM Sans,sans-serif" font-size="9">You</text>
+            <text x="120" y="60" text-anchor="middle" class="fill-slate-500 text-[9px]" font-family="DM Sans,sans-serif" font-size="9">Peer</text>
+          </svg>
+        </div>
+        <div id="topo-status" class="text-center text-[11px] text-slate-500 mt-1 font-medium">Initialising…</div>
+      </div>
+    </aside>
+
+    <!-- Mobile overlay backdrop -->
+    <div id="sidebar-overlay" class="hidden fixed inset-0 z-30 bg-black/60 backdrop-blur-sm md:hidden" aria-hidden="true"></div>
+
+    <!-- ====================================================
+         MAIN CONTENT
+    ==================================================== -->
+    <div class="flex-1 flex flex-col min-h-full md:ml-64">
+
+      <!-- Mobile header -->
+      <header class="md:hidden flex items-center justify-between px-4 py-3 bg-panel border-b border-white/[0.04] shrink-0 sticky top-0 z-20">
+        <div class="flex items-center gap-2.5">
+          <div class="bg-brand/10 text-brand p-1.5 rounded-lg" aria-hidden="true"><i class="ph ph-lightning text-base"></i></div>
+          <span class="font-bold tracking-tight text-sm">DropZone</span>
+        </div>
+        <button id="hamburger" aria-label="Open navigation" aria-expanded="false" aria-controls="mobile-sidebar"
+          class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-surface transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
+          <i class="ph ph-list text-xl" aria-hidden="true"></i>
+        </button>
+      </header>
+
+      <!-- Toast container -->
+      <div id="toast-container" role="region" aria-label="Notifications" aria-live="polite"
+        class="fixed top-4 left-1/2 -translate-x-1/2 z-[60] flex flex-col gap-2 pointer-events-none w-full max-w-sm px-4">
       </div>
 
-      <div class="h-px bg-white/[0.05]"></div>
+      <!-- ================================================
+           PANELS
+      ================================================ -->
+      <main class="flex-1 overflow-y-auto pb-20 md:pb-8" id="main-content">
 
-      <div class="bg-input rounded-2xl p-3 space-y-1.5 text-xs text-slate-500">
-        <div class="flex justify-between"><span>Max files</span><span class="text-slate-400">50</span></div>
-        <div class="flex justify-between"><span>Max file size</span><span class="text-slate-400">2 GB</span></div>
-        <div class="flex justify-between"><span>Max total</span><span class="text-slate-400">5 GB</span></div>
-      </div>
-    </div>
+        <!-- SEND PANEL -->
+        <section id="panel-send" class="panel p-5 md:p-8 max-w-2xl mx-auto w-full animate-fade-in" aria-labelledby="send-heading">
+          <h1 id="send-heading" class="text-2xl font-bold mb-1">Send</h1>
+          <p class="text-slate-500 text-sm mb-6">Choose files or text. A direct link will be generated for the recipient.</p>
 
-    <button id="reset-settings-btn" class="text-xs text-slate-500 hover:text-danger transition-colors">Reset to defaults</button>
-  </section>
+          <!-- Tabs -->
+          <div class="flex gap-2 mb-5" role="tablist" aria-label="Send mode">
+            <button id="tab-files" role="tab" aria-selected="true" aria-controls="view-files"
+              class="px-4 py-2 rounded-xl text-sm font-medium border border-white/[0.06] bg-input text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 transition-colors">
+              <i class="ph ph-files mr-1.5" aria-hidden="true"></i>Files
+            </button>
+            <button id="tab-text" role="tab" aria-selected="false" aria-controls="view-text"
+              class="px-4 py-2 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-surface transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
+              <i class="ph ph-text-aa mr-1.5" aria-hidden="true"></i>Text
+            </button>
+          </div>
 
-  <!-- Transfer Overlay -->
-  <div id="transfer-overlay" class="hidden fixed inset-0 z-40 bg-bg/80 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="w-full max-w-2xl bg-panel border border-white/[0.05] p-6 rounded-3xl flex flex-col gap-5 animate-slide-up max-h-[90vh] overflow-hidden">
-      <div class="flex justify-between items-start">
+          <!-- FILES VIEW -->
+          <div id="view-files" role="tabpanel" aria-labelledby="tab-files">
+            <!-- Drop zone -->
+            <label id="dropzone"
+              data-dragging="false"
+              class="bg-panel border-2 border-dashed border-white/[0.08] hover:border-brand/40 data-[dragging=true]:border-brand/60 data-[dragging=true]:bg-brand/5 rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-all duration-200 min-h-[160px] group focus-within:border-brand/40 focus-within:ring-2 focus-within:ring-brand/20">
+              <div class="bg-white/[0.04] p-3 rounded-2xl mb-3 group-hover:scale-105 transition-transform text-slate-500 group-hover:text-brand">
+                <i class="ph ph-upload-simple text-2xl" aria-hidden="true"></i>
+              </div>
+              <span class="text-sm font-semibold text-slate-300 group-hover:text-white transition-colors">Drop files or click to browse</span>
+              <span class="text-slate-600 mt-1 text-xs">Up to 50 files · 2 GB each · 5 GB total</span>
+              <input type="file" id="file-input" class="sr-only" multiple aria-label="Select files to send">
+            </label>
+
+            <!-- File list -->
+            <div id="file-list-container" class="hidden mt-4 bg-panel border border-white/[0.05] rounded-2xl overflow-hidden">
+              <div class="px-4 py-3 flex justify-between items-center border-b border-white/[0.04]">
+                <span id="file-count-label" class="text-xs font-semibold text-slate-400">0 files</span>
+                <button id="clear-files-btn" type="button"
+                  class="text-xs text-slate-500 hover:text-red-400 flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-red-400/5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/40">
+                  <i class="ph ph-trash text-sm" aria-hidden="true"></i>Clear all
+                </button>
+              </div>
+              <div id="file-list" class="max-h-52 overflow-y-auto" role="list" aria-label="Selected files"></div>
+              <div class="px-4 py-3 flex justify-between items-center border-t border-white/[0.04]">
+                <span id="total-size-label" class="text-xs text-slate-500">—</span>
+                <button id="confirm-files-btn" type="button"
+                  class="bg-brand hover:bg-brand/85 text-bg font-semibold px-5 py-2 rounded-xl text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60">
+                  Continue
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- TEXT VIEW -->
+          <div id="view-text" role="tabpanel" aria-labelledby="tab-text" class="hidden">
+            <div class="bg-panel border border-white/[0.05] rounded-2xl p-4">
+              <label for="text-input" class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Message</label>
+              <textarea id="text-input" rows="6" spellcheck="true"
+                class="w-full bg-input border border-white/[0.06] rounded-xl px-4 py-3 text-sm text-slate-200 placeholder-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 resize-none transition-shadow"
+                placeholder="Type or paste text to send…"></textarea>
+              <div class="flex justify-end mt-3">
+                <button id="confirm-text-btn" type="button"
+                  class="bg-brand hover:bg-brand/85 text-bg font-semibold px-5 py-2 rounded-xl text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60">
+                  Continue
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- SHARE VIEW -->
+          <div id="share-view" class="hidden mt-6 bg-panel border border-white/[0.05] p-6 rounded-2xl flex flex-col items-center gap-5" aria-live="polite">
+            <h2 class="text-xl font-bold">Share this link</h2>
+            <div class="bg-white p-3 rounded-xl shadow-xl shadow-black/40">
+              <canvas id="qrcode" class="block rounded-lg" width="220" height="220" aria-label="QR code for share link"></canvas>
+            </div>
+            <div class="w-full flex flex-col sm:flex-row gap-2">
+              <button id="copy-link-btn" type="button"
+                class="flex-1 flex items-center justify-center gap-2 bg-surface hover:bg-input text-slate-200 py-2.5 rounded-xl text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
+                <i class="ph ph-link text-base" aria-hidden="true"></i>Copy Link
+              </button>
+              <button id="copy-key-btn" type="button"
+                class="flex-1 flex items-center justify-center gap-2 bg-surface hover:bg-input text-slate-200 py-2.5 rounded-xl text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 disabled:opacity-40 disabled:cursor-not-allowed">
+                <i class="ph ph-key text-base" aria-hidden="true"></i>Copy Key
+              </button>
+            </div>
+            <div class="w-full bg-white/[0.03] rounded-xl px-3.5 py-3 flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <i class="ph ph-shield-check text-brand" aria-hidden="true"></i>
+                <span id="security-badge-text" class="text-xs text-slate-400">Standard WebRTC</span>
+              </div>
+              <span class="flex items-center gap-1.5 text-brand text-[11px] font-semibold bg-brand/10 px-2.5 py-1 rounded-lg">
+                <i class="ph ph-circle-notch animate-spin text-xs" aria-hidden="true"></i>Waiting
+              </span>
+            </div>
+            <button id="cancel-share-btn" type="button" class="text-xs text-slate-500 hover:text-red-400 transition-colors py-1">Cancel</button>
+          </div>
+        </section>
+
+        <!-- RECEIVE PANEL -->
+        <section id="panel-receive" class="panel hidden p-5 md:p-8 max-w-2xl mx-auto w-full animate-fade-in" aria-labelledby="receive-heading">
+          <h1 id="receive-heading" class="text-2xl font-bold mb-1">Receive</h1>
+          <p class="text-slate-500 text-sm mb-6">Connect via a share link, or enter a peer ID directly.</p>
+
+          <div id="receive-paste" class="space-y-4">
+            <!-- URL / link input -->
+            <div class="bg-panel border border-white/[0.05] rounded-2xl p-5 space-y-3">
+              <label for="receive-url-input" class="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
+                Paste link
+              </label>
+              <input id="receive-url-input" type="url" autocomplete="off" spellcheck="false"
+                placeholder="https://…?peer=abc123  or  abc123#key"
+                class="w-full bg-input border border-white/[0.06] rounded-xl px-4 py-3 text-sm text-slate-200 placeholder-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 transition-shadow"
+                aria-describedby="receive-url-hint">
+              <p id="receive-url-hint" class="text-[11px] text-slate-600">Accepts full URLs or raw peer IDs (with optional #key).</p>
+              <button id="connect-btn" type="button"
+                class="bg-brand hover:bg-brand/85 text-bg font-semibold px-5 py-2.5 rounded-xl text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 w-full sm:w-auto">
+                Connect
+              </button>
+            </div>
+
+            <!-- Manual peer ID + optional key -->
+            <div class="bg-panel border border-white/[0.05] rounded-2xl p-5 space-y-3">
+              <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Or enter peer ID manually</p>
+              <div class="flex flex-col sm:flex-row gap-2">
+                <div class="flex-1">
+                  <label for="peer-id-input" class="sr-only">Peer ID</label>
+                  <input id="peer-id-input" type="text" autocomplete="off" spellcheck="false"
+                    placeholder="Peer ID"
+                    class="w-full bg-input border border-white/[0.06] rounded-xl px-4 py-2.5 text-sm text-slate-200 placeholder-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 font-mono transition-shadow">
+                </div>
+                <div class="flex-1">
+                  <label for="peer-key-input" class="sr-only">Encryption key (optional)</label>
+                  <input id="peer-key-input" type="text" autocomplete="off" spellcheck="false"
+                    placeholder="AES key (optional)"
+                    class="w-full bg-input border border-white/[0.06] rounded-xl px-4 py-2.5 text-sm text-slate-200 placeholder-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 font-mono transition-shadow">
+                </div>
+              </div>
+              <p class="text-[11px] text-slate-600">Enter the peer ID from the sender. Leave the key blank for standard mode.</p>
+              <button id="connect-key-btn" type="button"
+                class="bg-surface hover:bg-input text-slate-200 font-semibold px-5 py-2.5 rounded-xl text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 w-full sm:w-auto border border-white/[0.06]">
+                Connect with ID
+              </button>
+            </div>
+          </div>
+
+          <div id="receive-status" class="hidden mt-4 flex items-center gap-2 text-sm text-slate-400 bg-panel border border-white/[0.05] rounded-xl px-4 py-3" aria-live="polite">
+            <i class="ph ph-circle-notch animate-spin text-brand shrink-0" aria-hidden="true"></i>
+            <span id="receive-status-text">Connecting…</span>
+          </div>
+        </section>
+
+        <!-- HELP PANEL -->
+        <section id="panel-help" class="panel hidden p-5 md:p-8 max-w-2xl mx-auto w-full animate-fade-in space-y-4" aria-labelledby="help-heading">
+          <h1 id="help-heading" class="text-2xl font-bold mb-2">How DropZone works</h1>
+
+          <div class="bg-panel border border-white/[0.05] rounded-2xl p-5 space-y-2">
+            <h2 class="font-semibold text-white flex items-center gap-2 text-sm">
+              <i class="ph ph-globe text-brand text-base" aria-hidden="true"></i>Peer-to-peer — no cloud
+            </h2>
+            <p class="text-sm text-slate-400 leading-relaxed">Files travel directly between browsers using WebRTC. A lightweight signaling server helps you find each other, then steps aside. Your data never touches a server.</p>
+          </div>
+
+          <div class="bg-panel border border-white/[0.05] rounded-2xl p-5 space-y-2">
+            <h2 class="font-semibold text-white flex items-center gap-2 text-sm">
+              <i class="ph ph-lock-key text-brand text-base" aria-hidden="true"></i>Two security modes
+            </h2>
+            <p class="text-sm text-slate-400 leading-relaxed">
+              <strong class="text-slate-200">Standard</strong> uses WebRTC's built-in DTLS encryption — secure for most transfers.
+              <strong class="text-slate-200">AES-256-GCM</strong> adds a second end-to-end layer. The key exists only in your URL hash and is never sent to any server.
+            </p>
+          </div>
+
+          <div class="bg-panel border border-white/[0.05] rounded-2xl p-5 space-y-2">
+            <h2 class="font-semibold text-white flex items-center gap-2 text-sm">
+              <i class="ph ph-arrows-left-right text-brand text-base" aria-hidden="true"></i>Adaptive chunking
+            </h2>
+            <p class="text-sm text-slate-400 leading-relaxed">DropZone measures round-trip latency in real time and adjusts packet size and send window automatically. Memory stays low and speed stays high.</p>
+          </div>
+
+          <div class="bg-panel border border-white/[0.05] rounded-2xl p-5 space-y-2">
+            <h2 class="font-semibold text-white flex items-center gap-2 text-sm">
+              <i class="ph ph-hard-drives text-brand text-base" aria-hidden="true"></i>Streaming large files
+            </h2>
+            <p class="text-sm text-slate-400 leading-relaxed">A Service Worker streams incoming data directly to disk. Multi-gigabyte transfers complete without exhausting RAM.</p>
+          </div>
+
+          <div class="bg-panel border border-white/[0.05] rounded-2xl p-5 space-y-2">
+            <h2 class="font-semibold text-white flex items-center gap-2 text-sm">
+              <i class="ph ph-key text-brand text-base" aria-hidden="true"></i>Connecting with a key
+            </h2>
+            <p class="text-sm text-slate-400 leading-relaxed">Go to <strong class="text-slate-200">Receive</strong> and paste the full share link, or enter the peer ID and optional AES key separately in the manual fields. This is useful if you received the link and key through different channels for extra security.</p>
+          </div>
+        </section>
+
+        <!-- SETTINGS PANEL -->
+        <section id="panel-settings" class="panel hidden p-5 md:p-8 max-w-2xl mx-auto w-full animate-fade-in space-y-5" aria-labelledby="settings-heading">
+          <h1 id="settings-heading" class="text-2xl font-bold mb-2">Settings</h1>
+
+          <div class="bg-panel border border-white/[0.05] rounded-2xl p-5 space-y-5">
+
+            <div>
+              <label for="setting-security" class="text-[11px] font-semibold text-slate-500 uppercase tracking-widest block mb-2">Security mode</label>
+              <div class="relative">
+                <select id="setting-security"
+                  class="w-full bg-input border border-white/[0.06] rounded-xl px-3.5 py-2.5 text-sm text-slate-200 appearance-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 cursor-pointer pr-8">
+                  <option value="standard">Standard (WebRTC DTLS)</option>
+                  <option value="aes">AES-256-GCM (end-to-end)</option>
+                </select>
+                <i class="ph ph-caret-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs pointer-events-none" aria-hidden="true"></i>
+              </div>
+              <p class="text-xs text-slate-500 mt-2">Standard is fastest. AES adds a second encryption layer via a key in the URL hash — never sent to any server.</p>
+            </div>
+
+            <div class="h-px bg-white/[0.05]" role="separator"></div>
+
+            <div>
+              <label for="setting-chunk" class="text-[11px] font-semibold text-slate-500 uppercase tracking-widest block mb-2">Chunk strategy</label>
+              <div class="relative">
+                <select id="setting-chunk"
+                  class="w-full bg-input border border-white/[0.06] rounded-xl px-3.5 py-2.5 text-sm text-slate-200 appearance-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 cursor-pointer pr-8">
+                  <option value="adaptive">Adaptive (recommended)</option>
+                  <option value="16">Fixed 16 KB</option>
+                  <option value="32">Fixed 32 KB</option>
+                  <option value="64">Fixed 64 KB</option>
+                  <option value="128">Fixed 128 KB</option>
+                </select>
+                <i class="ph ph-caret-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs pointer-events-none" aria-hidden="true"></i>
+              </div>
+              <p class="text-xs text-slate-500 mt-2">Adaptive tunes chunk size and window size based on live RTT. Fixed modes are useful for testing specific conditions.</p>
+            </div>
+
+            <div class="h-px bg-white/[0.05]" role="separator"></div>
+
+            <div class="flex items-center justify-between gap-4">
+              <div>
+                <p class="text-sm text-slate-300 font-medium">Auto-download</p>
+                <p class="text-[11px] text-slate-500 mt-0.5">Automatically save files when a transfer completes. Browsers may block multiple simultaneous pop-ups.</p>
+              </div>
+              <button id="setting-autodl" type="button" role="switch" aria-checked="false"
+                class="relative shrink-0 w-10 h-5 rounded-full bg-input border border-white/[0.08] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
+                <span id="setting-autodl-knob" class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-slate-500 transition-all duration-200" aria-hidden="true"></span>
+              </button>
+            </div>
+
+            <div class="h-px bg-white/[0.05]" role="separator"></div>
+
+            <dl class="bg-input rounded-xl p-3 space-y-1.5 text-xs text-slate-500">
+              <div class="flex justify-between"><dt>Max files</dt><dd class="text-slate-400 font-medium">50</dd></div>
+              <div class="flex justify-between"><dt>Max file size</dt><dd class="text-slate-400 font-medium">2 GB</dd></div>
+              <div class="flex justify-between"><dt>Max total size</dt><dd class="text-slate-400 font-medium">5 GB</dd></div>
+            </dl>
+          </div>
+
+          <button id="reset-settings-btn" type="button"
+            class="text-xs text-slate-500 hover:text-red-400 transition-colors py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/40 rounded">
+            Reset to defaults
+          </button>
+        </section>
+
+      </main><!-- /main -->
+
+      <!-- ============================================
+           MOBILE BOTTOM NAV
+      ============================================ -->
+      <nav class="md:hidden fixed bottom-0 inset-x-0 z-20 bg-panel border-t border-white/[0.04] flex items-center justify-around px-2 py-2 safe-area-inset-bottom"
+        aria-label="Quick navigation">
+        <button data-panel="send"   class="mobile-nav-btn text-[#a8c7fa] flex flex-col items-center gap-0.5 px-4 py-1.5 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50" aria-label="Send">
+          <i class="ph ph-paper-plane-tilt text-xl" aria-hidden="true"></i>
+          <span class="text-[10px] font-medium">Send</span>
+        </button>
+        <button data-panel="receive" class="mobile-nav-btn text-slate-500 flex flex-col items-center gap-0.5 px-4 py-1.5 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50" aria-label="Receive">
+          <i class="ph ph-download-simple text-xl" aria-hidden="true"></i>
+          <span class="text-[10px] font-medium">Receive</span>
+        </button>
+        <button data-panel="help"    class="mobile-nav-btn text-slate-500 flex flex-col items-center gap-0.5 px-4 py-1.5 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50" aria-label="Help">
+          <i class="ph ph-question text-xl" aria-hidden="true"></i>
+          <span class="text-[10px] font-medium">Help</span>
+        </button>
+        <button data-panel="settings" class="mobile-nav-btn text-slate-500 flex flex-col items-center gap-0.5 px-4 py-1.5 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50" aria-label="Settings">
+          <i class="ph ph-gear text-xl" aria-hidden="true"></i>
+          <span class="text-[10px] font-medium">Settings</span>
+        </button>
+      </nav>
+
+    </div><!-- /main content wrapper -->
+  </div><!-- /layout wrapper -->
+
+  <!-- ======================================================
+       TRANSFER OVERLAY
+  ====================================================== -->
+  <div id="transfer-overlay" class="hidden fixed inset-0 z-50 bg-bg/80 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="transfer-status">
+    <div class="w-full max-w-xl bg-panel border border-white/[0.05] p-5 md:p-6 rounded-2xl flex flex-col gap-4 animate-slide-up max-h-[90dvh] overflow-hidden">
+
+      <div class="flex justify-between items-start shrink-0">
         <div>
           <h2 id="transfer-status" class="text-xl font-bold text-white">Connecting</h2>
-          <p id="transfer-subtitle" class="text-slate-500 text-xs mt-0.5">Establishing channel</p>
+          <p id="transfer-subtitle" class="text-slate-500 text-xs mt-0.5">Establishing channel…</p>
         </div>
         <div class="text-right">
           <p id="transfer-speed" class="text-sm font-semibold text-brand">—</p>
           <p id="transfer-eta" class="text-slate-600 text-[11px]">Calculating</p>
         </div>
       </div>
-      <div>
-        <div class="w-full bg-surface rounded-full h-1.5 overflow-hidden" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progress-wrapper">
+
+      <!-- Master progress -->
+      <div class="shrink-0">
+        <div class="w-full bg-white/[0.06] rounded-full h-1.5 overflow-hidden"
+          role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
+          id="progress-wrapper" aria-label="Overall transfer progress">
           <div id="master-progress" class="bg-brand h-full w-0 transition-all duration-300 rounded-full"></div>
         </div>
         <div class="flex justify-between mt-1.5 text-[11px] text-slate-600">
@@ -293,1146 +479,104 @@ tailwind.config = {
           <span id="master-bytes">0 B / 0 B</span>
         </div>
       </div>
-      <div class="bg-bg rounded-2xl overflow-hidden border border-white/[0.04] flex-1 min-h-0 flex flex-col">
+
+      <!-- Queue -->
+      <div class="bg-bg rounded-xl overflow-hidden border border-white/[0.04] flex-1 min-h-0 flex flex-col">
         <div class="px-3.5 py-2 flex justify-between items-center border-b border-white/[0.04] shrink-0">
           <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Queue</span>
           <span id="queue-status" class="text-[11px] text-slate-500">0 / 0</span>
         </div>
-        <div id="transfer-queue" class="overflow-y-auto p-1" role="list"></div>
+        <div id="transfer-queue" class="overflow-y-auto p-1 flex-1" role="list" aria-label="File transfer queue"></div>
       </div>
+
+      <!-- Controls -->
       <div class="flex gap-2 shrink-0">
-        <button id="pause-btn" class="flex items-center gap-1.5 bg-surface hover:bg-input text-slate-200 px-4 py-2.5 rounded-2xl text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50" aria-pressed="false">
+        <button id="pause-btn" type="button" aria-pressed="false"
+          class="flex items-center gap-1.5 bg-surface hover:bg-input text-slate-200 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
           <i class="ph ph-pause text-base" id="pause-icon" aria-hidden="true"></i>
           <span id="pause-text">Pause</span>
         </button>
-        <button id="cancel-transfer-btn" class="ml-auto flex items-center gap-1.5 text-slate-500 hover:text-danger hover:bg-danger/8 px-4 py-2.5 rounded-2xl text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50">
-          <i class="ph ph-x text-base" aria-hidden="true"></i> Cancel
+        <button id="cancel-transfer-btn" type="button"
+          class="ml-auto flex items-center gap-1.5 text-slate-500 hover:text-red-400 hover:bg-red-400/8 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/50">
+          <i class="ph ph-x text-base" aria-hidden="true"></i>Cancel
         </button>
       </div>
-      <div class="flex items-center gap-4 text-[11px] text-slate-600 shrink-0">
-        <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-brand/60 animate-pulse"></span> RTT <span id="rtt-display" class="text-slate-500 font-medium">—</span>ms</span>
-        <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-warning/60 animate-pulse"></span> Retries <span id="retry-display" class="text-slate-500 font-medium">0</span></span>
-        <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-success/60 animate-pulse"></span> <span id="chunk-display" class="text-slate-500 font-medium">0</span> chunks</span>
+
+      <!-- Stats row -->
+      <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-600 shrink-0">
+        <span class="flex items-center gap-1.5">
+          <span class="w-1.5 h-1.5 rounded-full bg-brand/60 animate-pulse-soft" aria-hidden="true"></span>
+          RTT <span id="rtt-display" class="text-slate-400 font-medium ml-0.5">—</span>ms
+        </span>
+        <span class="flex items-center gap-1.5">
+          <span class="w-1.5 h-1.5 rounded-full bg-warning/60 animate-pulse-soft" aria-hidden="true"></span>
+          Retries <span id="retry-display" class="text-slate-400 font-medium ml-0.5">0</span>
+        </span>
+        <span class="flex items-center gap-1.5">
+          <span class="w-1.5 h-1.5 rounded-full bg-success/60 animate-pulse-soft" aria-hidden="true"></span>
+          <span id="chunk-display" class="text-slate-400 font-medium">0</span> chunks
+        </span>
       </div>
     </div>
   </div>
 
-  <!-- Done Overlay -->
-  <div id="done-overlay" class="hidden fixed inset-0 z-40 bg-bg/80 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="w-full max-w-md bg-panel border border-white/[0.05] p-6 rounded-3xl flex flex-col items-center gap-5 animate-slide-up">
-      <div class="bg-success/10 text-success p-3.5 rounded-2xl">
+  <!-- ======================================================
+       DONE OVERLAY
+  ====================================================== -->
+  <div id="done-overlay" class="hidden fixed inset-0 z-50 bg-bg/80 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="done-heading">
+    <div class="w-full max-w-md bg-panel border border-white/[0.05] p-6 rounded-2xl flex flex-col items-center gap-5 animate-slide-up max-h-[90dvh] overflow-y-auto">
+      <div class="bg-emerald-500/10 text-emerald-400 p-3.5 rounded-2xl shrink-0">
         <i class="ph ph-check-circle text-3xl" aria-hidden="true"></i>
       </div>
       <div class="text-center">
-        <h2 class="text-2xl font-bold text-white">Complete</h2>
+        <h2 id="done-heading" class="text-2xl font-bold text-white">Complete</h2>
         <p id="done-summary" class="text-slate-500 text-sm mt-1">Transfer finished.</p>
       </div>
-      <div id="done-files-container" class="hidden w-full bg-bg border border-white/[0.04] rounded-2xl overflow-hidden">
-        <div class="px-4 py-2.5 border-b border-white/[0.04]"><span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Received</span></div>
-        <div id="done-file-list" class="max-h-48 overflow-y-auto" role="list"></div>
+
+      <!-- Received files -->
+      <div id="done-files-container" class="hidden w-full bg-bg border border-white/[0.04] rounded-xl overflow-hidden">
+        <div class="px-4 py-2.5 border-b border-white/[0.04]">
+          <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Received</span>
+        </div>
+        <div id="done-file-list" class="max-h-52 overflow-y-auto" role="list" aria-label="Received files"></div>
       </div>
-      <div class="w-full bg-surface/40 rounded-2xl p-4 space-y-2 text-xs">
-        <div class="flex justify-between"><span class="text-slate-500">Duration</span><span id="stat-duration" class="text-slate-300 font-medium">—</span></div>
-        <div class="flex justify-between"><span class="text-slate-500">Average speed</span><span id="stat-speed" class="text-slate-300 font-medium">—</span></div>
-        <div class="flex justify-between"><span class="text-slate-500">Chunks</span><span id="stat-chunks" class="text-slate-300 font-medium">—</span></div>
-        <div class="flex justify-between"><span class="text-slate-500">Retries</span><span id="stat-retries" class="text-slate-300 font-medium">—</span></div>
-      </div>
-      <button id="done-close-btn" class="w-full bg-brand hover:bg-brand/85 text-bg px-5 py-2.5 rounded-2xl font-semibold text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60">Close</button>
+
+      <!-- Stats -->
+      <dl class="w-full bg-white/[0.03] rounded-xl p-4 space-y-2 text-xs">
+        <div class="flex justify-between"><dt class="text-slate-500">Duration</dt>     <dd id="stat-duration" class="text-slate-300 font-medium">—</dd></div>
+        <div class="flex justify-between"><dt class="text-slate-500">Avg speed</dt>    <dd id="stat-speed"    class="text-slate-300 font-medium">—</dd></div>
+        <div class="flex justify-between"><dt class="text-slate-500">Chunks</dt>       <dd id="stat-chunks"   class="text-slate-300 font-medium">—</dd></div>
+        <div class="flex justify-between"><dt class="text-slate-500">Retries</dt>      <dd id="stat-retries"  class="text-slate-300 font-medium">—</dd></div>
+      </dl>
+
+      <button id="done-close-btn" type="button"
+        class="w-full bg-brand hover:bg-brand/85 text-bg px-5 py-2.5 rounded-xl font-semibold text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60">
+        Close
+      </button>
     </div>
   </div>
 
-  <!-- Error Overlay -->
-  <div id="error-overlay" class="hidden fixed inset-0 z-40 bg-bg/80 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="w-full max-w-md bg-panel border border-white/[0.05] p-6 rounded-3xl flex flex-col items-center gap-5 animate-slide-up" role="alert">
-      <div class="bg-danger/10 text-danger p-3.5 rounded-2xl">
+  <!-- ======================================================
+       ERROR OVERLAY
+  ====================================================== -->
+  <div id="error-overlay" class="hidden fixed inset-0 z-50 bg-bg/80 backdrop-blur-sm flex items-center justify-center p-4" role="alertdialog" aria-modal="true" aria-labelledby="error-title" aria-describedby="error-message">
+    <div class="w-full max-w-md bg-panel border border-white/[0.05] p-6 rounded-2xl flex flex-col items-center gap-5 animate-slide-up">
+      <div class="bg-red-500/10 text-red-400 p-3.5 rounded-2xl shrink-0">
         <i class="ph ph-warning-circle text-3xl" aria-hidden="true"></i>
       </div>
       <div class="text-center">
-        <h2 id="error-title" class="text-2xl font-bold text-white">Failed</h2>
-        <p id="error-message" class="text-slate-500 mt-1 text-sm">Connection lost.</p>
+        <h2 id="error-title" class="text-2xl font-bold text-white">Error</h2>
+        <p id="error-message" class="text-slate-500 mt-1 text-sm">Something went wrong.</p>
       </div>
-      <div id="error-diagnostics" class="w-full bg-bg rounded-2xl border border-white/[0.04] p-3 space-y-1.5 text-xs font-mono"></div>
-      <button id="error-close-btn" class="w-full bg-brand hover:bg-brand/85 text-bg px-5 py-2.5 rounded-2xl font-semibold text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60">Start Over</button>
+      <dl id="error-diagnostics" class="w-full bg-bg rounded-xl border border-white/[0.04] p-3 space-y-1.5 text-xs font-mono" aria-label="Error diagnostics"></dl>
+      <button id="error-close-btn" type="button"
+        class="w-full bg-brand hover:bg-brand/85 text-bg px-5 py-2.5 rounded-xl font-semibold text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60">
+        Start Over
+      </button>
     </div>
   </div>
-</main>
 
-<script type="module">
-// ============================================================
-// CONFIG
-// ============================================================
-const CONFIG = {
-  MAX_FILES: 50,
-  MAX_FILE_SIZE: 2 * 1024 * 1024 * 1024,
-  MAX_TOTAL_SIZE: 5 * 1024 * 1024 * 1024,
-  MAX_RETRIES: 5,
-  CHUNK_TIMEOUT: 3000,
-  INITIAL_CHUNK_SIZE: 32 * 1024,
-  MIN_CHUNK_SIZE: 4 * 1024,
-  MAX_CHUNK_SIZE: 256 * 1024,
-  INITIAL_WINDOW: 8,
-  MIN_WINDOW: 4,
-  MAX_WINDOW: 16,
-};
-
-// ============================================================
-// DOM HELPER — strict: no innerHTML anywhere
-// ============================================================
-function $(id) { return document.getElementById(id); }
-function makeEl(tag, cls, attrs = {}, children = []) {
-  const e = document.createElement(tag);
-  if (cls) e.className = cls;
-  Object.entries(attrs).forEach(([k, v]) => {
-    if (k === 'text') e.textContent = v;
-    else if (k === 'html') throw new Error('innerHTML is forbidden');
-    else if (k === 'style' && typeof v === 'object') Object.assign(e.style, v);
-    else e.setAttribute(k, v);
-  });
-  children.forEach(c => { if (c) e.appendChild(c); });
-  return e;
-}
-
-// ============================================================
-// SETTINGS STORE
-// ============================================================
-class SettingsStore {
-  static load() {
-    return {
-      security: localStorage.getItem('dz_security') || 'standard',
-      chunkMode: localStorage.getItem('dz_chunkMode') || 'adaptive',
-      autoDownload: localStorage.getItem('dz_autoDownload') === 'true',
-    };
-  }
-  static save(key, value) {
-    localStorage.setItem(`dz_${key}`, value);
-  }
-}
-
-// ============================================================
-// CRYPTO MANAGER — Web Crypto AES-GCM
-// ============================================================
-class CryptoManager {
-  static async generateKey() {
-    return crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']);
-  }
-  static async exportKey(key) {
-    const raw = await crypto.subtle.exportKey('raw', key);
-    return btoa(String.fromCharCode(...new Uint8Array(raw))).replace(/[+/=]/g, '').slice(0, 43);
-  }
-  static async importKey(base64) {
-    let b = base64;
-    const pad = b.length % 4;
-    if (pad) b += '='.repeat(4 - pad);
-    const binary = atob(b.replace(/-/g, '+').replace(/_/g, '/'));
-    const raw = new Uint8Array([...binary].map(c => c.charCodeAt(0)));
-    return crypto.subtle.importKey('raw', raw, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
-  }
-  static async encryptBuffer(buffer, key) {
-    const iv = crypto.getRandomValues(new Uint8Array(12));
-    const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, buffer);
-    const result = new Uint8Array(iv.length + ciphertext.byteLength);
-    result.set(iv, 0);
-    result.set(new Uint8Array(ciphertext), iv.length);
-    return result.buffer;
-  }
-  static async decryptBuffer(buffer, key) {
-    const view = new Uint8Array(buffer);
-    const iv = view.slice(0, 12);
-    const data = view.slice(12);
-    return crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, data);
-  }
-}
-
-// ============================================================
-// SERVICE WORKER — streaming downloads
-// ============================================================
-class SWManager {
-  constructor() {
-    this.active = false;
-    this.reg = null;
-  }
-  async init() {
-    if (!('serviceWorker' in navigator)) return;
-    const code = `
-      self.addEventListener('install', e => self.skipWaiting());
-      self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
-      const downloads = new Map();
-      self.addEventListener('message', (event) => {
-        if (event.data.type === 'REGISTER_DOWNLOAD') {
-          const { downloadId, filename, filetype, size } = event.data;
-          const port = event.ports[0];
-          const stream = new ReadableStream({
-            start(controller) {
-              port.onmessage = (e) => {
-                if (e.data.type === 'CHUNK') controller.enqueue(new Uint8Array(e.data.chunk));
-                else if (e.data.type === 'END') { controller.close(); downloads.delete(downloadId); }
-                else if (e.data.type === 'ABORT') { controller.error(new Error('Aborted')); downloads.delete(downloadId); }
-              };
-              port.start();
-            }
-          });
-          downloads.set(downloadId, { stream, filename, filetype, size });
-          event.source.postMessage({ type: 'REGISTERED', downloadId });
-        }
-      });
-      self.addEventListener('fetch', (event) => {
-        const url = new URL(event.request.url);
-        if (url.pathname.startsWith('/__download/')) {
-          const id = url.pathname.split('/')[2];
-          const dl = downloads.get(id);
-          if (dl) {
-            event.respondWith(new Response(dl.stream, {
-              headers: {
-                'Content-Type': dl.filetype || 'application/octet-stream',
-                'Content-Length': dl.size,
-                'Content-Disposition': 'attachment; filename="' + dl.filename + '"'
-              }
-            }));
-          }
-        }
-      });
-    `;
-    const blob = new Blob([code], { type: 'application/javascript' });
-    const url = URL.createObjectURL(blob);
-    try {
-      this.reg = await navigator.serviceWorker.register(url);
-      await navigator.serviceWorker.ready;
-      this.active = true;
-    } catch (err) {
-      console.warn('SW registration failed', err);
-    }
-  }
-  async registerDownload(id, filename, filetype, size) {
-    if (!this.reg || !navigator.serviceWorker.controller) return null;
-    const channel = new MessageChannel();
-    return new Promise((resolve) => {
-      channel.port1.onmessage = (e) => {
-        if (e.data.type === 'REGISTERED') resolve(channel.port1);
-      };
-      navigator.serviceWorker.controller.postMessage({
-        type: 'REGISTER_DOWNLOAD', downloadId: id, filename, filetype, size
-      }, [channel.port2]);
-    });
-  }
-}
-
-// ============================================================
-// TOAST
-// ============================================================
-class Toast {
-  static show(msg, type = 'info') {
-    const c = $('toast-container');
-    const colors = { info: 'text-slate-200', success: 'text-success', error: 'text-danger', warning: 'text-warning' };
-    const icons = { info: 'info', success: 'check-circle', error: 'warning-circle', warning: 'warning' };
-    const toast = makeEl('div', `pointer-events-auto px-4 py-2.5 rounded-2xl font-medium shadow-2xl shadow-black/60 text-sm animate-fade-in flex items-center gap-2 bg-panel border border-white/[0.07] ${colors[type]}`, { role: 'alert' }, [
-      makeEl('i', `ph ph-${icons[type]} text-base`, { 'aria-hidden': 'true' }),
-      makeEl('span', '', { text: msg })
-    ]);
-    c.appendChild(toast);
-    setTimeout(() => {
-      toast.classList.replace('animate-fade-in', 'animate-fade-out');
-      setTimeout(() => toast.remove(), 200);
-    }, 3500);
-  }
-}
-
-// ============================================================
-// FORMAT UTILS
-// ============================================================
-function fmtBytes(b) {
-  if (b === 0) return '0 B';
-  const k = 1024, sizes = ['B','KB','MB','GB'];
-  const i = Math.floor(Math.log(b) / Math.log(k));
-  return parseFloat((b / k ** i).toFixed(2)) + ' ' + sizes[i];
-}
-function fmtDuration(ms) {
-  if (ms < 1000) return ms + 'ms';
-  if (ms < 60000) return Math.floor(ms / 1000) + 's';
-  return Math.floor(ms / 60000) + 'm ' + Math.floor((ms % 60000) / 1000) + 's';
-}
-function fileIcon(name) {
-  const ext = (name.split('.').pop() || '').toLowerCase();
-  const map = {
-    image: ['jpg','jpeg','png','gif','webp','svg','bmp','ico'],
-    video: ['mp4','webm','mov','avi','mkv'],
-    audio: ['mp3','wav','ogg','flac','aac'],
-    document: ['pdf','doc','docx','txt','rtf','odt','xls','xlsx','ppt','pptx','csv'],
-    archive: ['zip','rar','7z','tar','gz'],
-    code: ['js','html','css','py','java','cpp','c','go','rs','ts','tsx','jsx','php','rb','json','yaml','xml']
-  };
-  for (const [t, exts] of Object.entries(map)) if (exts.includes(ext)) return t;
-  return 'file';
-}
-function phIcon(type) {
-  return { image:'image', video:'video', audio:'headphones', document:'file-text', archive:'archive', code:'code', file:'file' }[type] || 'file';
-}
-
-// ============================================================
-// CHUNKED SENDER — sliding window + dynamic sizing
-// ============================================================
-class ChunkedSender {
-  constructor(item, conn, cryptoKey, onProgress, onDone, onError) {
-    this.item = item;
-    this.conn = conn;
-    this.key = cryptoKey;
-    this.onProgress = onProgress;
-    this.onDone = onDone;
-    this.onError = onError;
-    this.chunkSize = item.fixedChunk || CONFIG.INITIAL_CHUNK_SIZE;
-    this.windowSize = CONFIG.INITIAL_WINDOW;
-    this.inFlight = new Map();
-    this.nextSeq = 0;
-    this.offset = 0;
-    this.total = item.size;
-    this.acked = 0;
-    this.retries = 0;
-    this.rtts = [];
-    this.timer = null;
-    this.paused = false;
-    this.cancelled = false;
-    this.done = false;
-    this._filling = false;
-    if (item.content) this.textBuf = new TextEncoder().encode(item.content);
-  }
-  start() {
-    this.conn.send({ type: 'file-header', id: this.item.id, name: this.item.name, size: this.total, filetype: this.item.type, isText: !!this.item.content });
-  }
-  onAckHeader() {
-    this.fillWindow();
-    this.timer = setInterval(() => this.checkTimeouts(), 500);
-  }
-  async fillWindow() {
-    if (this._filling || this.paused || this.cancelled || this.done) return;
-    this._filling = true;
-    try {
-      while (this.inFlight.size < this.windowSize && this.offset < this.total) {
-        if (!this.conn.open) break;
-        const end = Math.min(this.offset + this.chunkSize, this.total);
-        let buf;
-        if (this.textBuf) {
-          buf = this.textBuf.slice(this.offset, end).buffer;
-        } else {
-          const slice = this.item.file.slice(this.offset, end);
-          buf = await this.readSlice(slice);
-        }
-        let payload = buf;
-        let encrypted = false;
-        if (this.key) {
-          payload = await CryptoManager.encryptBuffer(buf, this.key);
-          encrypted = true;
-        }
-        const seq = this.nextSeq++;
-        this.conn.send({ type: 'chunk', id: this.item.id, seq, data: payload, encrypted });
-        this.inFlight.set(seq, { payload, time: performance.now(), retries: 0 });
-        this.offset = end;
-      }
-      if (this.inFlight.size === 0 && this.offset >= this.total) this.finish();
-    } catch (e) {
-      this.onError('Read/encrypt failed: ' + e.message);
-    }
-    this._filling = false;
-  }
-  readSlice(slice) {
-    return new Promise((res, rej) => {
-      const r = new FileReader();
-      r.onload = e => res(e.target.result);
-      r.onerror = rej;
-      r.readAsArrayBuffer(slice);
-    });
-  }
-  onAck(seq) {
-    const pkt = this.inFlight.get(seq);
-    if (!pkt) return;
-    this.inFlight.delete(seq);
-    this.acked++;
-    this.rtts.push(performance.now() - pkt.time);
-    if (this.rtts.length > 10) this.rtts.shift();
-    if (!this.item.fixedChunk) this.adapt();
-    this.onProgress(this.offset, this.total);
-    this.fillWindow();
-  }
-  adapt() {
-    const avg = this.rtts.reduce((a, b) => a + b, 0) / this.rtts.length;
-    if (avg < 80 && this.retries === 0) {
-      this.chunkSize = Math.min(Math.floor(this.chunkSize * 1.25), CONFIG.MAX_CHUNK_SIZE);
-      this.windowSize = Math.min(this.windowSize + 1, CONFIG.MAX_WINDOW);
-    } else if (avg > 250 || this.retries > 0) {
-      this.chunkSize = Math.max(Math.floor(this.chunkSize * 0.75), CONFIG.MIN_CHUNK_SIZE);
-      this.windowSize = Math.max(this.windowSize - 1, CONFIG.MIN_WINDOW);
-      this.retries = 0;
-    }
-  }
-  checkTimeouts() {
-    const now = performance.now();
-    for (const [seq, pkt] of this.inFlight) {
-      if (now - pkt.time > CONFIG.CHUNK_TIMEOUT) {
-        if (pkt.retries >= CONFIG.MAX_RETRIES) { this.onError(`Chunk ${seq} failed after ${CONFIG.MAX_RETRIES} retries`); return; }
-        pkt.retries++; this.retries++;
-        pkt.time = now;
-        this.conn.send({ type: 'chunk', id: this.item.id, seq, data: pkt.payload, encrypted: !!this.key });
-      }
-    }
-  }
-  pause() { this.paused = true; }
-  resume() { this.paused = false; this.fillWindow(); }
-  cancel() { this.cancelled = true; clearInterval(this.timer); }
-  finish() {
-    if (this.done) return;
-    this.done = true;
-    clearInterval(this.timer);
-    this.conn.send({ type: 'file-done', id: this.item.id });
-    this.onDone();
-  }
-}
-
-// ============================================================
-// CHUNKED RECEIVER — ordered write + bounded out-of-order buffer
-// ============================================================
-class ChunkedReceiver {
-  constructor(item, conn, cryptoKey, swManager, onProgress, onDone) {
-    this.item = item;
-    this.conn = conn;
-    this.key = cryptoKey;
-    this.sw = swManager;
-    this.onProgress = onProgress;
-    this.onDone = onDone;
-    this.expectedSeq = 0;
-    this.buffer = new Map();
-    this.receivedBytes = 0;
-    this.port = null;
-    this.textChunks = [];
-    this.complete = false;
-    this.chunkQueue = [];
-    this.processing = false;
-  }
-  async start() {
-    if (!this.item.isText && this.sw.active) {
-      this.port = await this.sw.registerDownload(this.item.id, this.item.name, this.item.type, this.item.size);
-    }
-    this.conn.send({ type: 'ack-header', id: this.item.id });
-  }
-  onChunk(seq, data, encrypted) {
-    this.chunkQueue.push({ seq, data, encrypted });
-    if (!this.processing) this.processQueue();
-  }
-  async processQueue() {
-    this.processing = true;
-    while (this.chunkQueue.length > 0) {
-      const task = this.chunkQueue.shift();
-      try { await this.processChunk(task.seq, task.data, task.encrypted); } catch (e) { console.error(e); }
-    }
-    this.processing = false;
-  }
-  async processChunk(seq, data, encrypted) {
-    if (this.complete) return;
-    let payload = data;
-    if (encrypted && this.key) {
-      try { payload = await CryptoManager.decryptBuffer(data, this.key); }
-      catch (e) { this.conn.send({ type: 'chunk-error', id: this.item.id, seq, message: 'Decrypt failed' }); return; }
-    }
-    if (seq < this.expectedSeq) {
-      this.conn.send({ type: 'ack-chunk', id: this.item.id, seq });
-      return;
-    }
-    if (seq === this.expectedSeq) {
-      await this.write(payload);
-      this.expectedSeq++;
-      while (this.buffer.has(this.expectedSeq)) {
-        await this.write(this.buffer.get(this.expectedSeq));
-        this.buffer.delete(this.expectedSeq);
-        this.expectedSeq++;
-      }
-    } else if (seq < this.expectedSeq + CONFIG.MAX_WINDOW * 2) {
-      this.buffer.set(seq, payload);
-    }
-    this.conn.send({ type: 'ack-chunk', id: this.item.id, seq });
-    this.onProgress(this.receivedBytes, this.item.size);
-    if (this.receivedBytes >= this.item.size && this.buffer.size === 0) this.finish();
-  }
-  async write(buf) {
-    this.receivedBytes += buf.byteLength;
-    if (this.item.isText) {
-      this.textChunks.push(buf);
-    } else if (this.port) {
-      this.port.postMessage({ type: 'CHUNK', chunk: buf }, [buf]);
-    } else {
-      if (!this.buffers) this.buffers = [];
-      this.buffers.push(new Uint8Array(buf));
-    }
-  }
-  finish() {
-    if (this.complete) return;
-    this.complete = true;
-    if (this.item.isText) {
-      const decoder = new TextDecoder();
-      this.item.textContent = this.textChunks.map(c => decoder.decode(c)).join('');
-    } else if (this.port) {
-      this.port.postMessage({ type: 'END' });
-      this.item.downloadUrl = `/__download/${this.item.id}`;
-    } else {
-      const blob = new Blob(this.buffers, { type: this.item.type });
-      this.item.downloadUrl = URL.createObjectURL(blob);
-    }
-    this.conn.send({ type: 'ack-file-done', id: this.item.id });
-    this.onDone();
-  }
-}
-
-// ============================================================
-// TRANSFER MANAGER — queue, stats, UI updates
-// ============================================================
-class TransferManager {
-  constructor() {
-    this.queue = [];
-    this.currentIdx = 0;
-    this.isPaused = false;
-    this.isCancelled = false;
-    this.stats = { start: 0, lastUpdate: 0, bytesSince: 0, total: 0, sent: 0, retries: 0, chunks: 0 };
-    this.senders = new Map();
-    this.receivers = new Map();
-  }
-  reset() {
-    this.queue = [];
-    this.currentIdx = 0;
-    this.isPaused = false;
-    this.isCancelled = false;
-    this.senders.clear();
-    this.receivers.clear();
-    this.stats = { start: 0, lastUpdate: 0, bytesSince: 0, total: 0, sent: 0, retries: 0, chunks: 0 };
-  }
-  initSender(files, conn, cryptoKey, settings) {
-    this.reset();
-    this.conn = conn; this.key = cryptoKey;
-    this.queue = files.map((f, i) => ({
-      id: f.id || `file-${i}-${Date.now()}`,
-      file: f.file || null,
-      content: f.content || null,
-      name: f.name,
-      size: f.size,
-      type: f.type || 'application/octet-stream',
-      fixedChunk: settings.chunkMode !== 'adaptive' ? parseInt(settings.chunkMode) * 1024 : null,
-      sent: 0, status: 'pending'
-    }));
-    this.stats.total = this.queue.reduce((s, q) => s + q.size, 0);
-    this.stats.start = this.stats.lastUpdate = performance.now();
-    this.renderQueue(); this.updateMaster();
-    conn.send({ type: 'manifest', files: this.queue.map(q => ({ id: q.id, name: q.name, size: q.size, filetype: q.type, isText: !!q.content })) });
-  }
-  initReceiver(manifest, conn, cryptoKey, swManager) {
-    this.reset();
-    this.conn = conn; this.key = cryptoKey; this.sw = swManager;
-    this.queue = manifest.map(f => ({
-      id: f.id, name: f.name, size: f.size, type: f.filetype || 'application/octet-stream',
-      isText: f.isText, sent: 0, status: 'pending', downloadUrl: null, textContent: ''
-    }));
-    this.stats.total = this.queue.reduce((s, q) => s + q.size, 0);
-    this.stats.start = this.stats.lastUpdate = performance.now();
-    this.renderQueue(); this.updateMaster();
-  }
-  onAckManifest() {
-    this.startNextFile();
-  }
-  startNextFile() {
-    const next = this.queue.find(q => q.status === 'pending');
-    if (!next) return;
-    next.status = 'active';
-    this.currentIdx = this.queue.indexOf(next);
-    this.renderQueue();
-    const sender = new ChunkedSender(next, this.conn, this.key,
-      (offset, total) => {
-        next.sent = offset;
-        this.stats.sent = this.queue.reduce((s, q) => s + q.sent, 0);
-        this.stats.bytesSince += (offset - (next._last || 0));
-        next._last = offset;
-        this.updateMaster(); this.renderQueue();
-      },
-      () => {
-        next.status = 'complete';
-        this.renderQueue();
-        this.startNextFile();
-        if (this.queue.every(q => q.status === 'complete')) this.onAllDone();
-      },
-      (err) => App.showError('Transfer failed', err)
-    );
-    this.senders.set(next.id, sender);
-    sender.start();
-  }
-  onAckHeader(id) {
-    const sen = this.senders.get(id);
-    if (sen) sen.onAckHeader();
-  }
-  onFileHeader(id) {
-    const item = this.queue.find(q => q.id === id);
-    if (!item) return;
-    item.status = 'active';
-    this.currentIdx = this.queue.indexOf(item);
-    const receiver = new ChunkedReceiver(item, this.conn, this.key, this.sw,
-      (recv, total) => {
-        item.sent = recv;
-        this.stats.sent = this.queue.reduce((s, q) => s + q.sent, 0);
-        this.stats.bytesSince += (recv - (item._last || 0));
-        item._last = recv;
-        this.updateMaster(); this.renderQueue();
-      },
-      () => {
-        item.status = 'complete';
-        this.renderQueue();
-        if (this.queue.every(q => q.status === 'complete')) this.onAllDone();
-      }
-    );
-    this.receivers.set(id, receiver);
-    receiver.start();
-  }
-  onChunk(id, seq, data, encrypted) {
-    const rec = this.receivers.get(id);
-    if (rec) rec.onChunk(seq, data, encrypted);
-    this.stats.chunks++;
-    $('chunk-display').textContent = this.stats.chunks;
-  }
-  onAckChunk(id, seq) {
-    const sen = this.senders.get(id);
-    if (sen) sen.onAck(seq);
-  }
-  onFileDone(id) {
-    const rec = this.receivers.get(id);
-    if (rec) rec.finish();
-  }
-  onAllDone() {
-    App.showDone(this.stats);
-  }
-  pause() {
-    this.isPaused = !this.isPaused;
-    this.senders.forEach(s => this.isPaused ? s.pause() : s.resume());
-    $('pause-text').textContent = this.isPaused ? 'Resume' : 'Pause';
-    $('pause-icon').className = this.isPaused ? 'ph ph-play text-base' : 'ph ph-pause text-base';
-    $('pause-btn').setAttribute('aria-pressed', String(this.isPaused));
-  }
-  cancel() {
-    this.isCancelled = true;
-    this.senders.forEach(s => s.cancel());
-    if (this.conn.open) this.conn.send({ type: 'cancel' });
-  }
-  updateMaster() {
-    const pct = this.stats.total > 0 ? Math.round(this.stats.sent / this.stats.total * 100) : 0;
-    $('master-progress').style.width = pct + '%';
-    $('progress-wrapper').setAttribute('aria-valuenow', pct);
-    $('master-percent').textContent = pct + '%';
-    $('master-bytes').textContent = `${fmtBytes(this.stats.sent)} / ${fmtBytes(this.stats.total)}`;
-    const done = this.queue.filter(q => q.status === 'complete').length;
-    $('queue-status').textContent = `${done} / ${this.queue.length}`;
-    const now = performance.now();
-    if (now - this.stats.lastUpdate > 800) {
-      const elapsed = (now - this.stats.lastUpdate) / 1000;
-      const speed = this.stats.bytesSince / elapsed;
-      if (speed > 0) {
-        $('transfer-speed').textContent = (speed / 1048576).toFixed(1) + ' MB/s';
-        const remaining = this.stats.total - this.stats.sent;
-        $('transfer-eta').textContent = remaining > 0 ? fmtDuration(Math.round(remaining / speed) * 1000) + ' left' : 'Finishing';
-      }
-      this.stats.lastUpdate = now;
-      this.stats.bytesSince = 0;
-    }
-  }
-  renderQueue() {
-    const container = $('transfer-queue');
-    while (container.firstChild) container.removeChild(container.firstChild);
-    this.queue.forEach((item, idx) => {
-      const isActive = idx === this.currentIdx && item.status === 'active';
-      const statusCls = { pending: 'text-slate-600', active: 'text-brand', complete: 'text-success', error: 'text-danger' }[item.status] || 'text-slate-600';
-      const pct = item.size > 0 ? Math.round(item.sent / item.size * 100) : 0;
-      const icon = phIcon(fileIcon(item.name));
-      const row = makeEl('div', `flex items-center gap-3 px-3.5 py-3 transition-colors ${isActive ? 'bg-white/[0.025]' : ''}`, { role: 'listitem' }, [
-        makeEl('div', 'bg-surface/60 p-1.5 rounded-xl text-slate-500 shrink-0', {}, [makeEl('i', `ph ph-${icon} text-sm`, { 'aria-hidden': 'true' })]),
-        makeEl('div', 'flex-1 min-w-0', {}, [
-          makeEl('div', 'flex justify-between items-center mb-1.5', {}, [
-            makeEl('p', 'text-sm font-medium text-slate-300 truncate', { text: item.name }),
-            makeEl('span', `text-[10px] font-semibold ${statusCls}`, { text: item.status.toUpperCase() })
-          ]),
-          makeEl('div', 'w-full bg-surface/80 rounded-full h-1 overflow-hidden', {}, [
-            makeEl('div', 'bg-brand h-full rounded-full transition-all duration-300', { style: { width: pct + '%' } })
-          ]),
-          makeEl('div', 'flex justify-between mt-1', {}, [
-            makeEl('span', 'text-[10px] text-slate-600', { text: fmtBytes(item.sent) }),
-            makeEl('span', 'text-[10px] text-slate-600', { text: pct + '%' })
-          ])
-        ])
-      ]);
-      container.appendChild(row);
-    });
-  }
-}
-
-// ============================================================
-// PEER MANAGER
-// ============================================================
-class PeerManager {
-  constructor(transferManager, onStatus, onError) {
-    this.transfer = transferManager;
-    this.onStatus = onStatus;
-    this.onError = onError;
-    this.peer = null;
-    this.conn = null;
-    this.isReceiver = false;
-    this.connectToId = null;
-    this.cryptoKey = null;
-    this.pendingShare = null;
-  }
-  async init() {
-    const params = new URLSearchParams(window.location.search);
-    this.connectToId = params.get('peer')?.replace(/[^a-zA-Z0-9_-]/g, '') || null;
-    const hash = window.location.hash.slice(1);
-    this.isReceiver = !!this.connectToId;
-    if (hash) {
-      try { this.cryptoKey = await CryptoManager.importKey(hash); } catch (e) { console.warn('Bad key'); }
-    }
-    this.peer = new Peer({ debug: 1 });
-    this.peer.on('open', () => {
-      this.onStatus('Ready', 'success');
-      if (this.isReceiver) {
-        App.switchPanel('receive');
-        this.startReceiver();
-      } else {
-        App.switchPanel('send');
-      }
-    });
-    this.peer.on('connection', (conn) => {
-      if (this.conn) { conn.close(); return; }
-      this.conn = conn;
-      this.setupConnection(conn, false);
-    });
-    this.peer.on('error', (err) => {
-      this.onStatus('Error', 'danger');
-      const map = {
-        'peer-unavailable': ['Unavailable', 'Sender is offline or link expired.'],
-        'network': ['Network', 'Cannot reach signaling server.'],
-        'server-error': ['Server', 'Signaling server error.'],
-        'disconnected': ['Disconnected', 'Connection closed unexpectedly.'],
-        'unavailable-id': ['ID Conflict', 'Peer ID already in use.']
-      };
-      const [title, msg] = map[err.type] || ['Error', err.message];
-      this.onError(title, msg);
-    });
-    this.peer.on('disconnected', () => this.onStatus('Offline', 'danger'));
-  }
-  async prepareShare(files, settings) {
-    if (settings.security === 'aes' && !this.cryptoKey) {
-      const key = await CryptoManager.generateKey();
-      this.cryptoKey = key;
-      const exported = await CryptoManager.exportKey(key);
-      window.location.hash = exported;
-    } else if (settings.security === 'standard') {
-      this.cryptoKey = null;
-      window.location.hash = '';
-    }
-    const base = window.location.origin + window.location.pathname;
-    const url = `${base}?peer=${this.peer.id}${window.location.hash}`;
-    new QRious({ element: $('qrcode'), value: url, size: 240, level: 'H', foreground: '#0e0e0f', background: '#ffffff' });
-    $('security-badge-text').textContent = settings.security === 'aes' ? 'AES-256-GCM' : 'Standard WebRTC';
-    $('copy-link-btn').onclick = () => navigator.clipboard.writeText(url).then(() => Toast.show('Link copied', 'success'));
-    $('copy-key-btn').onclick = () => {
-      if (window.location.hash) navigator.clipboard.writeText(window.location.hash.slice(1)).then(() => Toast.show('Key copied', 'success'));
-      else Toast.show('No key in standard mode', 'info');
-    };
-    $('share-view').classList.remove('hidden');
-    $('view-files').classList.add('hidden');
-    $('view-text').classList.add('hidden');
-    $('file-list-container').classList.add('hidden');
-    if (this.conn && this.conn.open) {
-      this.transfer.initSender(files, this.conn, this.cryptoKey, settings);
-    } else {
-      this.pendingShare = { files, settings };
-    }
-  }
-  startReceiver() {
-    const conn = this.peer.connect(this.connectToId, { reliable: true, metadata: { version: '2.1' } });
-    this.conn = conn;
-    this.setupConnection(conn, true);
-    $('receive-paste').classList.add('hidden');
-    $('receive-status').classList.remove('hidden');
-    $('receive-status').textContent = 'Connecting to ' + this.connectToId.slice(0, 12) + '…';
-  }
-  setupConnection(conn, isReceiver) {
-    let timeout = setTimeout(() => {
-      if (!conn.open) this.onError('Timeout', 'Could not connect within 30s. Sender may be behind a restrictive NAT.');
-    }, 30000);
-    conn.on('open', () => {
-      clearTimeout(timeout);
-      this.onStatus('Connected', 'success');
-      App.showTransfer();
-      if (isReceiver) {
-        $('transfer-status').textContent = 'Awaiting manifest';
-        $('transfer-subtitle').textContent = 'Secure channel open';
-      } else if (this.pendingShare) {
-        this.transfer.initSender(this.pendingShare.files, conn, this.cryptoKey, this.pendingShare.settings);
-        this.pendingShare = null;
-        $('transfer-status').textContent = 'Sending';
-        $('transfer-subtitle').textContent = this.transfer.queue.length + ' items';
-      }
-    });
-    conn.on('data', (data) => {
-      if (!data || typeof data !== 'object') return;
-      this.handleData(data, isReceiver);
-    });
-    conn.on('close', () => {
-      this.onStatus('Closed', 'danger');
-      if (!this.transfer.queue.every(q => q.status === 'complete')) {
-        this.onError('Lost', 'Peer disconnected before completion.');
-      }
-    });
-    conn.on('error', (err) => this.onError('Channel error', err.message));
-  }
-  handleData(data, isReceiver) {
-    if (isReceiver) {
-      switch (data.type) {
-        case 'manifest':
-          this.transfer.initReceiver(data.files, this.conn, this.cryptoKey, App.swManager);
-          $('transfer-status').textContent = 'Receiving';
-          $('transfer-subtitle').textContent = data.files.length + ' items';
-          this.conn.send({ type: 'ack-manifest' });
-          break;
-        case 'file-header':
-          this.transfer.onFileHeader(data.id);
-          $('transfer-status').textContent = 'Receiving: ' + data.name;
-          break;
-        case 'chunk':
-          this.transfer.onChunk(data.id, data.seq, data.data, data.encrypted);
-          break;
-        case 'file-done':
-          this.transfer.onFileDone(data.id);
-          break;
-        case 'cancel':
-          this.onError('Cancelled', 'Sender cancelled.');
-          break;
-      }
-    } else {
-      switch (data.type) {
-        case 'ack-manifest':
-          this.transfer.onAckManifest();
-          $('transfer-status').textContent = 'Sending';
-          $('transfer-subtitle').textContent = this.transfer.queue.length + ' items';
-          break;
-        case 'ack-header':
-          this.transfer.onAckHeader(data.id);
-          break;
-        case 'ack-chunk':
-          this.transfer.onAckChunk(data.id, data.seq);
-          break;
-        case 'cancel':
-          this.onError('Cancelled', 'Receiver cancelled.');
-          break;
-      }
-    }
-  }
-}
-
-// ============================================================
-// APP CONTROLLER
-// ============================================================
-const App = {
-  settings: null,
-  swManager: null,
-  transfer: null,
-  peer: null,
-  files: [],
-
-  async init() {
-    if (!window.isSecureContext) { alert('DropZone requires HTTPS or localhost.'); return; }
-    if (!window.Peer) { alert('PeerJS not loaded.'); return; }
-    this.settings = SettingsStore.load();
-    this.swManager = new SWManager();
-    await this.swManager.init();
-    this.transfer = new TransferManager();
-    this.peer = new PeerManager(this.transfer, this.updateStatus.bind(this), this.showError.bind(this));
-    await this.peer.init();
-    this.bindUI();
-  },
-
-  bindUI() {
-    // Sidebar
-    document.querySelectorAll('.nav-btn').forEach(btn => {
-      btn.addEventListener('click', () => this.switchPanel(btn.dataset.panel));
-    });
-
-    // Send tabs
-    $('tab-files').addEventListener('click', () => {
-      $('tab-files').classList.add('bg-surface', 'text-white', 'border', 'border-white/[0.06]');
-      $('tab-files').classList.remove('text-slate-400');
-      $('tab-text').classList.remove('bg-surface', 'text-white', 'border', 'border-white/[0.06]');
-      $('tab-text').classList.add('text-slate-400');
-      $('view-files').classList.remove('hidden');
-      $('view-text').classList.add('hidden');
-    });
-    $('tab-text').addEventListener('click', () => {
-      $('tab-text').classList.add('bg-surface', 'text-white', 'border', 'border-white/[0.06]');
-      $('tab-text').classList.remove('text-slate-400');
-      $('tab-files').classList.remove('bg-surface', 'text-white', 'border', 'border-white/[0.06]');
-      $('tab-files').classList.add('text-slate-400');
-      $('view-text').classList.remove('hidden');
-      $('view-files').classList.add('hidden');
-    });
-
-    // Dropzone
-    const dz = $('dropzone');
-    const fi = $('file-input');
-    const over = (e) => { e.preventDefault(); e.stopPropagation(); };
-    dz.addEventListener('dragenter', over);
-    dz.addEventListener('dragover', (e) => { over(e); dz.classList.add('border-brand/50', 'bg-brand/5'); });
-    dz.addEventListener('dragleave', (e) => { over(e); dz.classList.remove('border-brand/50', 'bg-brand/5'); });
-    dz.addEventListener('drop', (e) => { over(e); dz.classList.remove('border-brand/50', 'bg-brand/5'); if (e.dataTransfer.files.length) this.addFiles(e.dataTransfer.files); });
-    fi.addEventListener('change', (e) => { if (e.target.files.length) this.addFiles(e.target.files); });
-
-    $('clear-files-btn').addEventListener('click', () => { this.files = []; this.renderFiles(); });
-    $('confirm-files-btn').addEventListener('click', () => {
-      if (!this.files.length) { Toast.show('Select at least one file', 'warning'); return; }
-      this.peer.prepareShare(this.files.map(f => ({ file: f.file, name: f.name, size: f.size, type: f.type })), this.settings);
-    });
-    $('confirm-text-btn').addEventListener('click', () => {
-      const text = $('text-input').value;
-      if (!text) { Toast.show('Enter some text', 'warning'); return; }
-      const blob = new Blob([text], { type: 'text/plain' });
-      this.files = [{ content: text, name: 'message.txt', size: blob.size, type: 'text/plain' }];
-      this.peer.prepareShare(this.files, this.settings);
-    });
-    $('cancel-share-btn').addEventListener('click', () => {
-      $('share-view').classList.add('hidden');
-      if (this.files[0]?.content) $('view-text').classList.remove('hidden');
-      else $('view-files').classList.remove('hidden');
-    });
-
-    // Receive
-    $('connect-btn').addEventListener('click', () => {
-      const url = $('receive-url-input').value;
-      try {
-        const u = new URL(url);
-        const peerId = u.searchParams.get('peer');
-        if (!peerId) { Toast.show('Invalid link', 'error'); return; }
-        window.location.href = url;
-      } catch { Toast.show('Invalid URL', 'error'); }
-    });
-
-    // Transfer controls
-    $('pause-btn').addEventListener('click', () => this.transfer.pause());
-    $('cancel-transfer-btn').addEventListener('click', () => {
-      if (confirm('Cancel all transfers?')) {
-        this.transfer.cancel();
-        this.showError('Cancelled', 'You cancelled the transfer.');
-      }
-    });
-
-    // Done / Error
-    $('done-close-btn').addEventListener('click', () => this.reset());
-    $('error-close-btn').addEventListener('click', () => this.reset());
-
-    // Settings
-    $('setting-security').value = this.settings.security;
-    $('setting-security').addEventListener('change', (e) => { this.settings.security = e.target.value; SettingsStore.save('security', e.target.value); });
-    $('setting-chunk').value = this.settings.chunkMode;
-    $('setting-chunk').addEventListener('change', (e) => { this.settings.chunkMode = e.target.value; SettingsStore.save('chunkMode', e.target.value); });
-
-    const toggleAutoDl = () => {
-      this.settings.autoDownload = !this.settings.autoDownload;
-      SettingsStore.save('autoDownload', this.settings.autoDownload);
-      const btn = $('setting-autodl');
-      const knob = $('setting-autodl-knob');
-      btn.setAttribute('aria-checked', String(this.settings.autoDownload));
-      if (this.settings.autoDownload) {
-        btn.classList.add('bg-brand/20', 'border-brand/40');
-        btn.classList.remove('bg-surface');
-        knob.classList.add('translate-x-5', 'bg-brand');
-        knob.classList.remove('bg-slate-500');
-      } else {
-        btn.classList.remove('bg-brand/20', 'border-brand/40');
-        btn.classList.add('bg-surface');
-        knob.classList.remove('translate-x-5', 'bg-brand');
-        knob.classList.add('bg-slate-500');
-      }
-    };
-    $('setting-autodl').addEventListener('click', toggleAutoDl);
-    if (this.settings.autoDownload) toggleAutoDl();
-
-    $('reset-settings-btn').addEventListener('click', () => {
-      localStorage.clear();
-      this.settings = SettingsStore.load();
-      location.reload();
-    });
-
-    window.addEventListener('beforeunload', (e) => {
-      if (!$('transfer-overlay').classList.contains('hidden')) {
-        e.preventDefault(); e.returnValue = '';
-      }
-    });
-  },
-
-  addFiles(fileList) {
-    const merged = [...this.files.filter(f => f.file), ...Array.from(fileList)];
-    if (merged.length > CONFIG.MAX_FILES) { Toast.show(`Max ${CONFIG.MAX_FILES} files`, 'error'); return; }
-    let total = 0;
-    for (const f of merged) {
-      if (f.size > CONFIG.MAX_FILE_SIZE) { Toast.show(`${f.name} exceeds 2 GB`, 'error'); return; }
-      total += f.size;
-    }
-    if (total > CONFIG.MAX_TOTAL_SIZE) { Toast.show('Total exceeds 5 GB', 'error'); return; }
-    this.files = merged.map(f => f.file ? f : { file: f, name: f.name, size: f.size, type: f.type });
-    this.renderFiles();
-  },
-
-  renderFiles() {
-    const list = $('file-list');
-    while (list.firstChild) list.removeChild(list.firstChild);
-    const container = $('file-list-container');
-    if (!this.files.length) { container.classList.add('hidden'); return; }
-    container.classList.remove('hidden');
-    $('file-count-label').textContent = `${this.files.length} file${this.files.length !== 1 ? 's' : ''}`;
-    const total = this.files.reduce((s, f) => s + f.size, 0);
-    $('total-size-label').textContent = fmtBytes(total);
-    this.files.forEach((f, idx) => {
-      const icon = phIcon(fileIcon(f.name));
-      const row = makeEl('div', 'flex items-center gap-3 px-3.5 py-2.5 hover:bg-white/[0.02] transition-colors group', { role: 'listitem' }, [
-        makeEl('div', 'bg-surface/60 p-2 rounded-xl text-slate-500 shrink-0', {}, [makeEl('i', `ph ph-${icon} text-base`, { 'aria-hidden': 'true' })]),
-        makeEl('div', 'flex-1 min-w-0 text-left', {}, [
-          makeEl('p', 'text-sm font-medium text-slate-200 truncate', { text: f.name }),
-          makeEl('p', 'text-[11px] text-slate-600', { text: fmtBytes(f.size) })
-        ]),
-        makeEl('button', 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity text-slate-600 hover:text-danger p-1.5 rounded-xl hover:bg-danger/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50', { 'aria-label': `Remove ${f.name}` }, [
-          makeEl('i', 'ph ph-trash text-sm', { 'aria-hidden': 'true' })
-        ])
-      ]);
-      row.lastChild.addEventListener('click', () => { this.files.splice(idx, 1); this.renderFiles(); });
-      list.appendChild(row);
-    });
-  },
-
-  switchPanel(name) {
-    document.querySelectorAll('.panel').forEach(p => p.classList.add('hidden'));
-    $(`panel-${name}`).classList.remove('hidden');
-    document.querySelectorAll('.nav-btn').forEach(b => {
-      if (b.dataset.panel === name) {
-        b.classList.add('bg-surface', 'text-white');
-        b.classList.remove('text-slate-400');
-      } else {
-        b.classList.remove('bg-surface', 'text-white');
-        b.classList.add('text-slate-400');
-      }
-    });
-  },
-
-  showTransfer() {
-    $('transfer-overlay').classList.remove('hidden');
-    this.transfer.renderQueue();
-  },
-
-  showDone(stats) {
-    $('transfer-overlay').classList.add('hidden');
-    $('done-overlay').classList.remove('hidden');
-    const duration = stats.start ? performance.now() - stats.start : 0;
-    const speed = stats.total > 0 && duration > 0 ? (stats.total / (duration / 1000) / 1048576).toFixed(1) + ' MB/s' : '—';
-    $('done-summary').textContent = `${this.transfer.queue.length} items · ${fmtBytes(stats.total)} · ${fmtDuration(duration)}`;
-    $('stat-duration').textContent = fmtDuration(duration);
-    $('stat-speed').textContent = speed;
-    $('stat-chunks').textContent = stats.chunks;
-    $('stat-retries').textContent = stats.retries;
-
-    const filesContainer = $('done-files-container');
-    const filesList = $('done-file-list');
-    while (filesList.firstChild) filesList.removeChild(filesList.firstChild);
-
-    const hasDownloads = this.transfer.queue.some(q => q.downloadUrl || q.textContent);
-    if (hasDownloads) {
-      filesContainer.classList.remove('hidden');
-      this.transfer.queue.forEach(q => {
-        if (!q.downloadUrl && !q.textContent) return;
-        let actionEl;
-        if (q.textContent) {
-          const url = URL.createObjectURL(new Blob([q.textContent], { type: 'text/plain' }));
-          actionEl = makeEl('a', 'bg-brand hover:bg-brand/85 text-bg text-xs font-semibold px-3 py-1.5 rounded-xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60', { href: url, download: q.name, text: 'Save' });
-        } else {
-          actionEl = makeEl('a', 'bg-brand hover:bg-brand/85 text-bg text-xs font-semibold px-3 py-1.5 rounded-xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60', { href: q.downloadUrl, download: q.name, text: 'Save' });
-          if (this.settings.autoDownload) {
-            setTimeout(() => {
-              const a = document.createElement('a');
-              a.href = q.downloadUrl; a.download = q.name;
-              a.style.display = 'none'; document.body.appendChild(a); a.click(); a.remove();
-            }, 300);
-          }
-        }
-        const icon = phIcon(fileIcon(q.name));
-        const row = makeEl('div', 'flex items-center gap-3 px-3.5 py-2.5', { role: 'listitem' }, [
-          makeEl('div', 'bg-surface/60 p-2 rounded-xl text-slate-500 shrink-0', {}, [makeEl('i', `ph ph-${icon} text-base`, { 'aria-hidden': 'true' })]),
-          makeEl('div', 'flex-1 min-w-0', {}, [
-            makeEl('p', 'text-sm font-medium text-slate-200 truncate', { text: q.name }),
-            makeEl('p', 'text-[11px] text-slate-600', { text: fmtBytes(q.size) })
-          ]),
-          actionEl
-        ]);
-        filesList.appendChild(row);
-      });
-
-      if (this.transfer.queue.filter(q => q.downloadUrl || q.textContent).length > 1) {
-        const dlAll = makeEl('button', 'w-full px-4 py-2.5 text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-white/[0.03] transition-colors border-t border-white/[0.04] text-left flex items-center gap-2', {}, [
-          makeEl('i', 'ph ph-download-simple text-sm', { 'aria-hidden': 'true' }),
-          makeEl('span', '', { text: 'Download all' })
-        ]);
-        dlAll.addEventListener('click', () => {
-          this.transfer.queue.forEach((q, i) => {
-            if (!q.downloadUrl && !q.textContent) return;
-            setTimeout(() => {
-              const a = document.createElement('a');
-              a.href = q.downloadUrl || URL.createObjectURL(new Blob([q.textContent], { type: 'text/plain' }));
-              a.download = q.name;
-              a.style.display = 'none'; document.body.appendChild(a); a.click(); a.remove();
-            }, i * 200);
-          });
-        });
-        filesList.appendChild(dlAll);
-      }
-    } else {
-      filesContainer.classList.add('hidden');
-    }
-  },
-
-  showError(title, msg) {
-    $('transfer-overlay').classList.add('hidden');
-    $('done-overlay').classList.add('hidden');
-    $('error-overlay').classList.remove('hidden');
-    $('error-title').textContent = title;
-    $('error-message').textContent = msg;
-    const diag = $('error-diagnostics');
-    while (diag.firstChild) diag.removeChild(diag.firstChild);
-    const items = [
-      ['Time', new Date().toLocaleTimeString()],
-      ['Mode', this.peer.isReceiver ? 'Receiver' : 'Sender'],
-      ['Security', this.settings.security]
-    ];
-    items.forEach(([k, v]) => {
-      diag.appendChild(makeEl('div', 'flex justify-between', { role: 'row' }, [
-        makeEl('span', 'text-slate-500', { text: k + ':' }),
-        makeEl('span', 'text-slate-300', { text: v })
-      ]));
-    });
-  },
-
-  updateStatus(text, color) {
-    $('topo-status').textContent = text;
-    const you = $('topo-you');
-    const peer = $('topo-peer');
-    const line = $('topo-active-line');
-    const packet = $('topo-packet');
-    const fillMap = { success: 'fill-emerald-500', danger: 'fill-red-500', warning: 'fill-amber-500', info: 'fill-blue-500' };
-    const lineX = { success: '120', danger: '20', warning: '60', info: '60' };
-    const c = fillMap[color] || 'fill-slate-600';
-    you.setAttribute('class', `${c} transition-colors duration-300`);
-    peer.setAttribute('class', `${c} transition-colors duration-300`);
-    line.setAttribute('x2', lineX[color] || '20');
-    if (color === 'success') packet.classList.remove('hidden');
-    else packet.classList.add('hidden');
-  },
-
-  reset() {
-    window.location.href = window.location.pathname;
-  }
-};
-
-document.addEventListener('DOMContentLoaded', () => App.init());
-</script>
+  <!-- App JS (separate file) -->
+  <script src="dropzone.js" type="module"></script>
 </body>
 </html>
