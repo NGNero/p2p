@@ -104,8 +104,8 @@ class SWManager {
   async init() {
     if (!('serviceWorker' in navigator)) return;
     try {
-      // Register the external SW file
-      this.reg = await navigator.serviceWorker.register('./dropzone-sw.js', { scope: '/p2p/' })
+      // Register the external SW file relative to the current folder scope
+      this.reg = await navigator.serviceWorker.register('./dropzone-sw.js', { scope: './' })
       await navigator.serviceWorker.ready;
       this.active = !!navigator.serviceWorker.controller;
       // If controller isn't ready yet, listen for it
@@ -389,8 +389,9 @@ class ChunkedReceiver {
       const dec = new TextDecoder();
       this.item.textContent = this.textChunks.map(c => dec.decode(c)).join('');
     } else if (this.port) {
-      this.port.postMessage({ type: 'END' });
-      this.item.downloadUrl = `/__dz_dl/${this.item.id}`;
+        this.port.postMessage({ type: 'END' });
+        // Use a relative path prefix so it routes correctly within subdirectories
+        this.item.downloadUrl = `__dz_dl/${this.item.id}`;
     } else {
       const blob = new Blob(this.blobChunks, { type: this.item.type || 'application/octet-stream' });
       this.item.downloadUrl = URL.createObjectURL(blob);
