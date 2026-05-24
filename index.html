@@ -4,12 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="description" content="DropZone — Direct peer-to-peer file and text transfer. Private, encrypted, no cloud.">
-<meta name="theme-color" content="#09090b">
+<meta name="theme-color" content="#fefffe">
 <title>DropZone — P2P Transfer</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Google+Sans+Flex:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css">
 
 <link rel="stylesheet" href="dropzone.css">
@@ -45,10 +45,6 @@
           <i class="ph ph-question" aria-hidden="true"></i>
           <span>Help</span>
         </button>
-        <button class="nav-btn" data-panel="settings">
-          <i class="ph ph-gear" aria-hidden="true"></i>
-          <span>Settings</span>
-        </button>
       </nav>
 
       <div class="sidebar-status" aria-live="polite">
@@ -57,18 +53,18 @@
           <svg width="140" height="60" viewBox="0 0 140 60" aria-hidden="true">
             <defs>
               <linearGradient id="lineGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stop-color="rgba(96,165,250,0)"/>
-                <stop offset="50%" stop-color="rgba(96,165,250,0.5)"/>
-                <stop offset="100%" stop-color="rgba(96,165,250,0)"/>
+                <stop offset="0%" stop-color="rgba(10,86,208,0)"/>
+                <stop offset="50%" stop-color="rgba(10,86,208,0.4)"/>
+                <stop offset="100%" stop-color="rgba(10,86,208,0)"/>
               </linearGradient>
             </defs>
-            <line x1="20" y1="30" x2="120" y2="30" stroke="rgba(255,255,255,0.06)" stroke-width="2" stroke-linecap="round"/>
+            <line x1="20" y1="30" x2="120" y2="30" stroke="rgba(0,0,0,0.08)" stroke-width="2" stroke-linecap="round"/>
             <line id="topo-active-line" x1="20" y1="30" x2="20" y2="30" stroke="url(#lineGrad)" stroke-width="2" stroke-linecap="round" class="transition-line"/>
             <circle id="topo-you" cx="20" cy="30" r="5" class="transition-fill"/>
             <circle id="topo-peer" cx="120" cy="30" r="5" class="transition-fill"/>
             <circle id="topo-packet" cx="20" cy="30" r="2.5" class="packet"/>
-            <text x="20" y="48" text-anchor="middle" fill="#71717a" font-size="9" font-family="Inter,sans-serif">You</text>
-            <text x="120" y="48" text-anchor="middle" fill="#71717a" font-size="9" font-family="Inter,sans-serif">Peer</text>
+            <text x="20" y="48" text-anchor="middle" fill="#80868b" font-size="9" font-family="'Google Sans',sans-serif">You</text>
+            <text x="120" y="48" text-anchor="middle" fill="#80868b" font-size="9" font-family="'Google Sans',sans-serif">Peer</text>
           </svg>
         </div>
         <p id="topo-status" class="status-text">Initialising…</p>
@@ -106,13 +102,13 @@
           </div>
 
           <div id="view-files" class="tab-panel is-active" role="tabpanel" aria-labelledby="tab-files">
-            <label class="dropzone" id="dropzone" for="file-input">
+            <label class="dropzone" id="dropzone" for="file-input" tabindex="0">
               <input type="file" id="file-input" class="sr-only" multiple aria-label="Select files to send">
               <div class="dropzone-icon">
                 <i class="ph ph-upload-simple" aria-hidden="true"></i>
               </div>
               <p class="dropzone-title">Drop files or click to browse</p>
-              <p class="dropzone-hint">Up to 50 files · 2 GB each · 5 GB total</p>
+              <p class="dropzone-hint">Up to 200 files · 5 GB each · 50 GB total</p>
             </label>
 
             <div id="file-list-container" class="file-list-container" hidden>
@@ -125,7 +121,16 @@
               <div id="file-list" class="file-list" role="list" aria-label="Selected files"></div>
               <div class="file-list-footer">
                 <span id="total-size-label">—</span>
-                <button type="button" id="confirm-files-btn" class="btn">Continue</button>
+                <div class="footer-actions">
+                  <div class="select-wrap security-wrap">
+                    <select id="send-security" class="input" aria-label="Security mode">
+                      <option value="standard">Standard (WebRTC DTLS)</option>
+                      <option value="aes">AES-256-GCM</option>
+                    </select>
+                    <i class="ph ph-caret-down" aria-hidden="true"></i>
+                  </div>
+                  <button type="button" id="confirm-files-btn" class="btn">Continue</button>
+                </div>
               </div>
             </div>
           </div>
@@ -135,7 +140,16 @@
               <label for="text-input" class="label">Message</label>
               <textarea id="text-input" rows="6" placeholder="Type or paste text to send…" class="textarea"></textarea>
               <div class="form-footer">
-                <button type="button" id="confirm-text-btn" class="btn">Continue</button>
+                <div class="footer-actions" style="width:100%; justify-content: space-between;">
+                  <div class="select-wrap security-wrap">
+                    <select id="send-security-text" class="input" aria-label="Security mode">
+                      <option value="standard">Standard (WebRTC DTLS)</option>
+                      <option value="aes">AES-256-GCM</option>
+                    </select>
+                    <i class="ph ph-caret-down" aria-hidden="true"></i>
+                  </div>
+                  <button type="button" id="confirm-text-btn" class="btn">Continue</button>
+                </div>
               </div>
             </div>
           </div>
@@ -234,61 +248,6 @@
               <h3>Large files</h3>
               <p>Transfers complete in chunks and assemble into a downloadable blob. Multi-gigabyte files are supported within your browser's limits.</p>
             </article>
-          </div>
-        </section>
-
-        <!-- SETTINGS -->
-        <section id="panel-settings" class="panel" aria-labelledby="settings-heading">
-          <div class="panel-header">
-            <h1 id="settings-heading">Settings</h1>
-            <p class="panel-desc">Customize your transfer experience.</p>
-          </div>
-
-          <div class="card settings-card">
-            <div class="form-group">
-              <label for="setting-security" class="label">Security mode</label>
-              <div class="select-wrap">
-                <select id="setting-security" class="input">
-                  <option value="standard">Standard (WebRTC DTLS)</option>
-                  <option value="aes">AES-256-GCM (end-to-end)</option>
-                </select>
-                <i class="ph ph-caret-down" aria-hidden="true"></i>
-              </div>
-              <p class="hint">Standard is fastest. AES adds a second encryption layer via a key in the URL hash.</p>
-            </div>
-
-            <div class="form-group">
-              <label for="setting-chunk" class="label">Chunk strategy</label>
-              <div class="select-wrap">
-                <select id="setting-chunk" class="input">
-                  <option value="adaptive">Adaptive (recommended)</option>
-                  <option value="16">Fixed 16 KB</option>
-                  <option value="32">Fixed 32 KB</option>
-                  <option value="64">Fixed 64 KB</option>
-                  <option value="128">Fixed 128 KB</option>
-                </select>
-                <i class="ph ph-caret-down" aria-hidden="true"></i>
-              </div>
-              <p class="hint">Adaptive tunes chunk size based on live latency. Fixed modes are useful for testing.</p>
-            </div>
-
-            <div class="form-group toggle-group">
-              <div class="toggle-info">
-                <label for="setting-autodl" class="label">Auto-download</label>
-                <p class="hint">Automatically save files when a transfer completes.</p>
-              </div>
-              <button type="button" id="setting-autodl" class="toggle" role="switch" aria-checked="false" aria-label="Auto-download">
-                <span class="toggle-knob" aria-hidden="true"></span>
-              </button>
-            </div>
-
-            <div class="limits">
-              <div class="limit-row"><span>Max files</span><span>50</span></div>
-              <div class="limit-row"><span>Max file size</span><span>2 GB</span></div>
-              <div class="limit-row"><span>Max total size</span><span>5 GB</span></div>
-            </div>
-
-            <button type="button" id="reset-settings-btn" class="btn text danger">Reset to defaults</button>
           </div>
         </section>
       </main>
