@@ -183,6 +183,7 @@ h1, h2, h3, h4, h5, h6, .brand-title, .panel-header h1, .transfer-title, .done-h
   transition: filter .15s, transform .05s, box-shadow .15s;
   white-space: nowrap;
   min-height: 2.5rem;
+  text-decoration: none;
 }
 .btn:hover { filter: brightness(1.1); box-shadow: 0 2px 8px rgba(10,86,208,.2); }
 .btn:active { transform: scale(0.97); }
@@ -246,25 +247,21 @@ select { appearance: none; padding-right: 2.25rem; cursor: pointer; }
 .tab-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .tab-panel[hidden] { display: none !important; }
 
-/* Dropzone */
-.dropzone {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: .75rem;
-  padding: 2.5rem 1.5rem;
-  border: 2px dashed var(--border-strong);
-  border-radius: var(--radius);
-  background: var(--surface);
-  cursor: pointer;
-  transition: border-color .2s, background .2s;
-  text-align: center;
+/* daisyUI Dropzone overrides — ensure our design tokens apply */
+.dz-label {
+  /* Overrides any daisyUI / Tailwind base styles that conflict */
+  font-family: var(--font-body) !important;
 }
-.dropzone:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-color: var(--accent); }
-.dropzone.is-dragging, .dropzone:hover { border-color: var(--accent); background: var(--accent-dim); }
-.dropzone-icon { font-size: 2rem; color: var(--text-dim); transition: color .2s, transform .2s; }
-.dropzone:hover .dropzone-icon, .dropzone.is-dragging .dropzone-icon { color: var(--accent); transform: scale(1.05); }
-.dropzone-title { font-size: .9375rem; font-weight: 600; color: var(--header); font-family: var(--font-heading); }
-.dropzone-hint { font-size: .75rem; color: var(--text-dim); }
-.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border-width: 0; }
+.dz-label.is-dragging,
+.dz-label:focus-visible {
+  border-color: var(--accent) !important;
+  background: var(--accent-dim) !important;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.dz-label .dropzone-icon { transition: color .2s, transform .2s; }
+.dz-label:hover .dropzone-icon,
+.dz-label.is-dragging .dropzone-icon { color: var(--accent) !important; transform: scale(1.05); }
 
 /* File list */
 .file-list-container { margin-top: 1rem; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: var(--elevated); animation: slideUp .3s ease both; box-shadow: var(--shadow); }
@@ -359,7 +356,7 @@ select { appearance: none; padding-right: 2.25rem; cursor: pointer; }
 
 .progress-master { margin-top: .25rem; }
 .progress-track { height: 6px; background: var(--surface); border-radius: 999px; overflow: hidden; }
-.progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), #5c9dff); border-radius: 999px; transition: width .4s cubic-bezier(.4,0,.2,1); width: 0%; }
+.progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), #5c9dff); border-radius: 999px; transition: width .3s cubic-bezier(.4,0,.2,1); width: 0%; }
 .progress-meta { display: flex; justify-content: space-between; margin-top: .375rem; font-size: .75rem; color: var(--text-dim); font-weight: 500; }
 
 .queue-wrap { border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; display: flex; flex-direction: column; flex: 1; min-height: 0; background: var(--elevated); }
@@ -372,21 +369,17 @@ select { appearance: none; padding-right: 2.25rem; cursor: pointer; }
   transition: background .15s;
 }
 .queue-item.is-active { background: rgba(10,86,208,.04); }
+.queue-item.is-complete .queue-bar { background: var(--success); }
+.queue-item.is-complete .queue-icon { color: var(--success); }
 .queue-item + .queue-item { border-top: 1px solid var(--border); }
-.queue-icon { font-size: 1rem; color: var(--text-dim); background: var(--surface); padding: .375rem; border-radius: var(--radius-xs); display: flex; }
+.queue-icon { font-size: 1rem; color: var(--text-dim); background: var(--surface); padding: .375rem; border-radius: var(--radius-xs); display: flex; transition: color .2s; }
 .queue-info { flex: 1; min-width: 0; }
 .queue-name { font-size: .8125rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--header); }
 .queue-bar-wrap { height: 4px; background: var(--surface); border-radius: 999px; margin-top: .375rem; overflow: hidden; }
-.queue-bar { height: 100%; background: var(--accent); border-radius: 999px; transition: width .3s ease; width: 0%; }
+.queue-bar { height: 100%; background: var(--accent); border-radius: 999px; transition: width .25s ease, background .3s ease; width: 0%; }
 .queue-meta { display: flex; justify-content: space-between; margin-top: .25rem; font-size: .6875rem; color: var(--text-dim); }
 
 .transfer-controls { display: flex; gap: .625rem; }
-.transfer-stats { display: flex; gap: 1.25rem; font-size: .75rem; color: var(--text-dim); }
-.stat { display: inline-flex; align-items: center; gap: .375rem; }
-.stat-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
-.stat-dot.warning { background: var(--warning); }
-.stat-dot.success { background: var(--success); }
-.stat strong { color: var(--text-muted); font-weight: 600; margin-left: .25rem; }
 
 /* Done overlay */
 .done-card { padding: 0; overflow: hidden; }
@@ -403,10 +396,6 @@ select { appearance: none; padding-right: 2.25rem; cursor: pointer; }
 .done-file-row + .done-file-row { border-top: 1px solid var(--border); }
 .done-files-footer { padding: .875rem 1.25rem; border-top: 1px solid var(--border); background: var(--surface); display: flex; justify-content: center; }
 
-.done-stats { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem 1.5rem; padding: 1rem 1.5rem; background: var(--surface); border-top: 1px solid var(--border); }
-.done-stats div { display: flex; justify-content: space-between; font-size: .8125rem; }
-.done-stats dt { color: var(--text-dim); font-family: var(--font-heading); }
-.done-stats dd { color: var(--header); font-weight: 600; }
 .done-card > .btn { margin: 1rem 1.5rem 1.5rem; }
 
 /* Error overlay */
@@ -459,3 +448,17 @@ select { appearance: none; padding-right: 2.25rem; cursor: pointer; }
 
 /* Utilities */
 [hidden] { display: none !important; }
+
+/* daisyUI reset — prevent base styles from leaking into non-dropzone elements */
+.dz-label * { all: unset; }
+.dz-label .dropzone-icon,
+.dz-label .dropzone-title,
+.dz-label .dropzone-hint {
+  display: block;
+  font-family: var(--font-body);
+}
+.dz-label .dropzone-icon { font-size: 2rem; color: var(--text-dim); margin-bottom: .25rem; }
+.dz-label .dropzone-title { font-size: .9375rem; font-weight: 600; color: var(--header); font-family: var(--font-heading); }
+.dz-label .dropzone-hint { font-size: .75rem; color: var(--text-dim); margin-top: .25rem; }
+/* Phosphor icons inside dz-label need display:inline-flex */
+.dz-label i[class*="ph"] { display: inline-flex; font-size: 2rem; color: inherit; }
