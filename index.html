@@ -1,582 +1,396 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full">
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="DropZone — Direct peer-to-peer file and text transfer in your browser. No servers. No cloud. Private.">
-  <meta name="theme-color" content="#0e0e0f">
-  <title>DropZone — P2P Transfer</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="DropZone — Direct peer-to-peer file and text transfer. Private, encrypted, no cloud.">
+<meta name="theme-color" content="#09090b">
+<title>DropZone — P2P Transfer</title>
 
-  <!-- Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css">
 
-  <!-- Icons -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<link rel="stylesheet" href="dropzone.css">
 
-  <!-- Tailwind CDN with config -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: {
-            sans: ['"DM Sans"', 'system-ui', 'sans-serif'],
-          },
-          colors: {
-            brand:   '#a8c7fa',
-            bg:      '#0e0e0f',
-            panel:   '#161617',
-            surface: '#1f1e1e',
-            input:   '#252525',
-            success: '#34d399',
-            danger:  '#f87171',
-            warning: '#fbbf24',
-          },
-          animation: {
-            'fade-in':  'fadeIn 0.2s ease-out forwards',
-            'slide-up': 'slideUp 0.28s ease-out forwards',
-            'pulse-soft': 'pulseSoft 2s ease-in-out infinite',
-          },
-          keyframes: {
-            fadeIn:     { '0%': { opacity: '0', transform: 'translateY(5px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
-            slideUp:    { '0%': { opacity: '0', transform: 'translateY(10px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
-            pulseSoft:  { '0%,100%': { opacity: '0.5' }, '50%': { opacity: '1' } },
-          },
-        }
-      }
-    };
-  </script>
-
-  <!-- PeerJS & QRious -->
-  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js" defer></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js" defer></script>
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js" defer></script>
+<script src="dropzone.js" type="module" defer></script>
 </head>
-
-<body class="bg-bg text-slate-100 font-sans antialiased h-full overflow-hidden selection:bg-brand/30 selection:text-brand">
-
-  <!-- ======================================================
-       LAYOUT WRAPPER
-  ====================================================== -->
-  <div class="flex h-full">
-
-    <!-- ====================================================
-         SIDEBAR — hidden on mobile, visible md+
-    ==================================================== -->
-    <aside
-      id="mobile-sidebar"
-      data-open="false"
-      aria-label="Main navigation"
-      class="
-        fixed inset-y-0 left-0 z-40 flex flex-col w-64
-        bg-panel border-r border-white/[0.04]
-        -translate-x-full md:translate-x-0 transition-transform duration-300 ease-out
-        data-[open=true]:translate-x-0
-      "
-    >
-      <!-- Logo -->
-      <div class="p-5 flex items-center gap-3 border-b border-white/[0.04] shrink-0">
-        <div class="bg-brand/10 text-brand p-2 rounded-xl shrink-0" aria-hidden="true">
-          <i class="ph ph-lightning text-xl"></i>
-        </div>
-        <div>
-          <span class="text-lg font-bold tracking-tight leading-none block">DropZone</span>
-          <span class="text-[10px] text-slate-500 font-medium tracking-wider">P2P TRANSFER</span>
+<body>
+  <div class="app" id="app">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar" aria-label="Main navigation">
+      <div class="sidebar-header">
+        <div class="brand">
+          <i class="ph ph-lightning" aria-hidden="true"></i>
+          <div>
+            <span class="brand-title">DropZone</span>
+            <span class="brand-sub">P2P Transfer</span>
+          </div>
         </div>
       </div>
 
-      <!-- Nav links -->
-      <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto" aria-label="Sections">
-        <button data-panel="send" aria-current="page"
-          class="nav-btn bg-surface text-white w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
-          <i class="ph ph-paper-plane-tilt text-lg" aria-hidden="true"></i>
-          Send
+      <nav class="sidebar-nav" aria-label="Sections">
+        <button class="nav-btn is-active" data-panel="send" aria-current="page">
+          <i class="ph ph-paper-plane-tilt" aria-hidden="true"></i>
+          <span>Send</span>
         </button>
-        <button data-panel="receive"
-          class="nav-btn text-slate-400 hover:bg-surface hover:text-white w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
-          <i class="ph ph-download-simple text-lg" aria-hidden="true"></i>
-          Receive
+        <button class="nav-btn" data-panel="receive">
+          <i class="ph ph-download-simple" aria-hidden="true"></i>
+          <span>Receive</span>
         </button>
-        <button data-panel="help"
-          class="nav-btn text-slate-400 hover:bg-surface hover:text-white w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
-          <i class="ph ph-question text-lg" aria-hidden="true"></i>
-          Help
+        <button class="nav-btn" data-panel="help">
+          <i class="ph ph-question" aria-hidden="true"></i>
+          <span>Help</span>
         </button>
-        <button data-panel="settings"
-          class="nav-btn text-slate-400 hover:bg-surface hover:text-white w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
-          <i class="ph ph-gear text-lg" aria-hidden="true"></i>
-          Settings
+        <button class="nav-btn" data-panel="settings">
+          <i class="ph ph-gear" aria-hidden="true"></i>
+          <span>Settings</span>
         </button>
       </nav>
 
-      <!-- Connection topology -->
-      <div class="p-4 border-t border-white/[0.04] shrink-0" aria-live="polite" aria-label="Connection status">
-        <p class="text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-3">Connection</p>
-        <div class="relative h-20 w-full flex items-center justify-center">
-          <svg width="140" height="80" viewBox="0 0 140 80" aria-hidden="true" class="overflow-visible">
+      <div class="sidebar-status" aria-live="polite">
+        <p class="status-label">Connection</p>
+        <div class="status-graphic">
+          <svg width="140" height="60" viewBox="0 0 140 60" aria-hidden="true">
             <defs>
               <linearGradient id="lineGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%"   stop-color="rgba(168,199,250,0)"/>
-                <stop offset="50%"  stop-color="rgba(168,199,250,0.6)"/>
-                <stop offset="100%" stop-color="rgba(168,199,250,0)"/>
+                <stop offset="0%" stop-color="rgba(96,165,250,0)"/>
+                <stop offset="50%" stop-color="rgba(96,165,250,0.5)"/>
+                <stop offset="100%" stop-color="rgba(96,165,250,0)"/>
               </linearGradient>
             </defs>
-            <line x1="20" y1="40" x2="120" y2="40" stroke="rgba(255,255,255,0.07)" stroke-width="2" stroke-linecap="round"/>
-            <line id="topo-active-line" x1="20" y1="40" x2="20" y2="40" stroke="url(#lineGrad)" stroke-width="2" stroke-linecap="round" class="transition-all duration-500"/>
-            <circle id="topo-you"    cx="20"  cy="40" r="6" class="fill-slate-600 transition-colors duration-300"/>
-            <circle id="topo-peer"   cx="120" cy="40" r="6" class="fill-slate-600 transition-colors duration-300"/>
-            <circle id="topo-packet" cx="20"  cy="40" r="3" class="fill-brand hidden"/>
-            <text x="20"  y="60" text-anchor="middle" class="fill-slate-500 text-[9px]" font-family="DM Sans,sans-serif" font-size="9">You</text>
-            <text x="120" y="60" text-anchor="middle" class="fill-slate-500 text-[9px]" font-family="DM Sans,sans-serif" font-size="9">Peer</text>
+            <line x1="20" y1="30" x2="120" y2="30" stroke="rgba(255,255,255,0.06)" stroke-width="2" stroke-linecap="round"/>
+            <line id="topo-active-line" x1="20" y1="30" x2="20" y2="30" stroke="url(#lineGrad)" stroke-width="2" stroke-linecap="round" class="transition-line"/>
+            <circle id="topo-you" cx="20" cy="30" r="5" class="transition-fill"/>
+            <circle id="topo-peer" cx="120" cy="30" r="5" class="transition-fill"/>
+            <circle id="topo-packet" cx="20" cy="30" r="2.5" class="packet"/>
+            <text x="20" y="48" text-anchor="middle" fill="#71717a" font-size="9" font-family="Inter,sans-serif">You</text>
+            <text x="120" y="48" text-anchor="middle" fill="#71717a" font-size="9" font-family="Inter,sans-serif">Peer</text>
           </svg>
         </div>
-        <div id="topo-status" class="text-center text-[11px] text-slate-500 mt-1 font-medium">Initialising…</div>
+        <p id="topo-status" class="status-text">Initialising…</p>
       </div>
     </aside>
 
-    <!-- Mobile overlay backdrop -->
-    <div id="sidebar-overlay" class="hidden fixed inset-0 z-30 bg-black/60 backdrop-blur-sm md:hidden" aria-hidden="true"></div>
+    <div class="backdrop" id="sidebar-overlay"></div>
 
-    <!-- ====================================================
-         MAIN CONTENT
-    ==================================================== -->
-    <div class="flex-1 flex flex-col min-h-full md:ml-64">
-
-      <!-- Mobile header -->
-      <header class="md:hidden flex items-center justify-between px-4 py-3 bg-panel border-b border-white/[0.04] shrink-0 sticky top-0 z-20">
-        <div class="flex items-center gap-2.5">
-          <div class="bg-brand/10 text-brand p-1.5 rounded-lg" aria-hidden="true"><i class="ph ph-lightning text-base"></i></div>
-          <span class="font-bold tracking-tight text-sm">DropZone</span>
-        </div>
-        <button id="hamburger" aria-label="Open navigation" aria-expanded="false" aria-controls="mobile-sidebar"
-          class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-surface transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
-          <i class="ph ph-list text-xl" aria-hidden="true"></i>
+    <!-- Main -->
+    <div class="main">
+      <header class="topbar">
+        <button id="hamburger" class="hamburger" aria-label="Toggle navigation" aria-expanded="false" aria-controls="sidebar">
+          <i class="ph ph-list" aria-hidden="true"></i>
         </button>
+        <span class="topbar-title">DropZone</span>
       </header>
 
-      <!-- Toast container -->
-      <div id="toast-container" role="region" aria-label="Notifications" aria-live="polite"
-        class="fixed top-4 left-1/2 -translate-x-1/2 z-[60] flex flex-col gap-2 pointer-events-none w-full max-w-sm px-4">
-      </div>
+      <main class="content">
+        <div id="toast-container" class="toast-container" role="region" aria-live="polite" aria-label="Notifications"></div>
 
-      <!-- ================================================
-           PANELS
-      ================================================ -->
-      <main class="flex-1 overflow-y-auto pb-20 md:pb-8" id="main-content">
+        <!-- SEND -->
+        <section id="panel-send" class="panel is-active" aria-labelledby="send-heading">
+          <div class="panel-header">
+            <h1 id="send-heading">Send</h1>
+            <p class="panel-desc">Drop files or write text to generate a private share link.</p>
+          </div>
 
-        <!-- SEND PANEL -->
-        <section id="panel-send" class="panel p-5 md:p-8 max-w-2xl mx-auto w-full animate-fade-in" aria-labelledby="send-heading">
-          <h1 id="send-heading" class="text-2xl font-bold mb-1">Send</h1>
-          <p class="text-slate-500 text-sm mb-6">Choose files or text. A direct link will be generated for the recipient.</p>
-
-          <!-- Tabs -->
-          <div class="flex gap-2 mb-5" role="tablist" aria-label="Send mode">
-            <button id="tab-files" role="tab" aria-selected="true" aria-controls="view-files"
-              class="px-4 py-2 rounded-xl text-sm font-medium border border-white/[0.06] bg-input text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 transition-colors">
-              <i class="ph ph-files mr-1.5" aria-hidden="true"></i>Files
+          <div class="tabs" role="tablist" aria-label="Send mode">
+            <button class="tab-btn is-active" id="tab-files" role="tab" aria-selected="true" aria-controls="view-files" tabindex="0">
+              <i class="ph ph-files" aria-hidden="true"></i> Files
             </button>
-            <button id="tab-text" role="tab" aria-selected="false" aria-controls="view-text"
-              class="px-4 py-2 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-surface transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
-              <i class="ph ph-text-aa mr-1.5" aria-hidden="true"></i>Text
+            <button class="tab-btn" id="tab-text" role="tab" aria-selected="false" aria-controls="view-text" tabindex="-1">
+              <i class="ph ph-text-aa" aria-hidden="true"></i> Text
             </button>
           </div>
 
-          <!-- FILES VIEW -->
-          <div id="view-files" role="tabpanel" aria-labelledby="tab-files">
-            <!-- Drop zone -->
-            <label id="dropzone"
-              data-dragging="false"
-              class="bg-panel border-2 border-dashed border-white/[0.08] hover:border-brand/40 data-[dragging=true]:border-brand/60 data-[dragging=true]:bg-brand/5 rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-all duration-200 min-h-[160px] group focus-within:border-brand/40 focus-within:ring-2 focus-within:ring-brand/20">
-              <div class="bg-white/[0.04] p-3 rounded-2xl mb-3 group-hover:scale-105 transition-transform text-slate-500 group-hover:text-brand">
-                <i class="ph ph-upload-simple text-2xl" aria-hidden="true"></i>
-              </div>
-              <span class="text-sm font-semibold text-slate-300 group-hover:text-white transition-colors">Drop files or click to browse</span>
-              <span class="text-slate-600 mt-1 text-xs">Up to 50 files · 2 GB each · 5 GB total</span>
+          <div id="view-files" class="tab-panel is-active" role="tabpanel" aria-labelledby="tab-files">
+            <label class="dropzone" id="dropzone" for="file-input">
               <input type="file" id="file-input" class="sr-only" multiple aria-label="Select files to send">
+              <div class="dropzone-icon">
+                <i class="ph ph-upload-simple" aria-hidden="true"></i>
+              </div>
+              <p class="dropzone-title">Drop files or click to browse</p>
+              <p class="dropzone-hint">Up to 50 files · 2 GB each · 5 GB total</p>
             </label>
 
-            <!-- File list -->
-            <div id="file-list-container" class="hidden mt-4 bg-panel border border-white/[0.05] rounded-2xl overflow-hidden">
-              <div class="px-4 py-3 flex justify-between items-center border-b border-white/[0.04]">
-                <span id="file-count-label" class="text-xs font-semibold text-slate-400">0 files</span>
-                <button id="clear-files-btn" type="button"
-                  class="text-xs text-slate-500 hover:text-red-400 flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-red-400/5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/40">
-                  <i class="ph ph-trash text-sm" aria-hidden="true"></i>Clear all
+            <div id="file-list-container" class="file-list-container" hidden>
+              <div class="file-list-header">
+                <span id="file-count-label">0 files</span>
+                <button type="button" id="clear-files-btn" class="btn text danger">
+                  <i class="ph ph-trash" aria-hidden="true"></i> Clear
                 </button>
               </div>
-              <div id="file-list" class="max-h-52 overflow-y-auto" role="list" aria-label="Selected files"></div>
-              <div class="px-4 py-3 flex justify-between items-center border-t border-white/[0.04]">
-                <span id="total-size-label" class="text-xs text-slate-500">—</span>
-                <button id="confirm-files-btn" type="button"
-                  class="bg-brand hover:bg-brand/85 text-bg font-semibold px-5 py-2 rounded-xl text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60">
-                  Continue
-                </button>
+              <div id="file-list" class="file-list" role="list" aria-label="Selected files"></div>
+              <div class="file-list-footer">
+                <span id="total-size-label">—</span>
+                <button type="button" id="confirm-files-btn" class="btn">Continue</button>
               </div>
             </div>
           </div>
 
-          <!-- TEXT VIEW -->
-          <div id="view-text" role="tabpanel" aria-labelledby="tab-text" class="hidden">
-            <div class="bg-panel border border-white/[0.05] rounded-2xl p-4">
-              <label for="text-input" class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Message</label>
-              <textarea id="text-input" rows="6" spellcheck="true"
-                class="w-full bg-input border border-white/[0.06] rounded-xl px-4 py-3 text-sm text-slate-200 placeholder-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 resize-none transition-shadow"
-                placeholder="Type or paste text to send…"></textarea>
-              <div class="flex justify-end mt-3">
-                <button id="confirm-text-btn" type="button"
-                  class="bg-brand hover:bg-brand/85 text-bg font-semibold px-5 py-2 rounded-xl text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60">
-                  Continue
-                </button>
+          <div id="view-text" class="tab-panel" role="tabpanel" aria-labelledby="tab-text" hidden>
+            <div class="card">
+              <label for="text-input" class="label">Message</label>
+              <textarea id="text-input" rows="6" placeholder="Type or paste text to send…" class="textarea"></textarea>
+              <div class="form-footer">
+                <button type="button" id="confirm-text-btn" class="btn">Continue</button>
               </div>
             </div>
           </div>
 
-          <!-- SHARE VIEW -->
-          <div id="share-view" class="hidden mt-6 bg-panel border border-white/[0.05] p-6 rounded-2xl flex flex-col items-center gap-5" aria-live="polite">
-            <h2 class="text-xl font-bold">Share this link</h2>
-            <div class="bg-white p-3 rounded-xl shadow-xl shadow-black/40">
-              <canvas id="qrcode" class="block rounded-lg" width="220" height="220" aria-label="QR code for share link"></canvas>
-            </div>
-            <div class="w-full flex flex-col sm:flex-row gap-2">
-              <button id="copy-link-btn" type="button"
-                class="flex-1 flex items-center justify-center gap-2 bg-surface hover:bg-input text-slate-200 py-2.5 rounded-xl text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
-                <i class="ph ph-link text-base" aria-hidden="true"></i>Copy Link
-              </button>
-              <button id="copy-key-btn" type="button"
-                class="flex-1 flex items-center justify-center gap-2 bg-surface hover:bg-input text-slate-200 py-2.5 rounded-xl text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 disabled:opacity-40 disabled:cursor-not-allowed">
-                <i class="ph ph-key text-base" aria-hidden="true"></i>Copy Key
-              </button>
-            </div>
-            <div class="w-full bg-white/[0.03] rounded-xl px-3.5 py-3 flex items-center justify-between">
-              <div class="flex items-center gap-2">
-                <i class="ph ph-shield-check text-brand" aria-hidden="true"></i>
-                <span id="security-badge-text" class="text-xs text-slate-400">Standard WebRTC</span>
+          <div id="share-view" class="share-view" hidden>
+            <div class="card share-card">
+              <h2>Share this link</h2>
+              <div class="qr-wrap">
+                <canvas id="qrcode" width="200" height="200" aria-label="QR code"></canvas>
               </div>
-              <span class="flex items-center gap-1.5 text-brand text-[11px] font-semibold bg-brand/10 px-2.5 py-1 rounded-lg">
-                <i class="ph ph-circle-notch animate-spin text-xs" aria-hidden="true"></i>Waiting
-              </span>
+              <div class="share-actions">
+                <div class="copy-row">
+                  <input type="text" id="share-url" class="input mono" readonly aria-label="Share link">
+                  <button type="button" id="copy-link-btn" class="btn secondary">
+                    <i class="ph ph-link" aria-hidden="true"></i> Copy
+                  </button>
+                </div>
+                <div class="copy-row" id="key-row" hidden>
+                  <input type="text" id="share-key" class="input mono" readonly aria-label="Encryption key">
+                  <button type="button" id="copy-key-btn" class="btn secondary">
+                    <i class="ph ph-key" aria-hidden="true"></i> Copy Key
+                  </button>
+                </div>
+              </div>
+              <div class="share-meta">
+                <div class="badge" id="security-badge">
+                  <i class="ph ph-shield-check" aria-hidden="true"></i>
+                  <span id="security-badge-text">Standard WebRTC</span>
+                </div>
+                <span class="status-pill" id="share-status">
+                  <i class="ph ph-circle-notch" aria-hidden="true"></i> Waiting…
+                </span>
+              </div>
+              <button type="button" id="cancel-share-btn" class="btn text">Cancel</button>
             </div>
-            <button id="cancel-share-btn" type="button" class="text-xs text-slate-500 hover:text-red-400 transition-colors py-1">Cancel</button>
           </div>
         </section>
 
-        <!-- RECEIVE PANEL -->
-        <section id="panel-receive" class="panel hidden p-5 md:p-8 max-w-2xl mx-auto w-full animate-fade-in" aria-labelledby="receive-heading">
-          <h1 id="receive-heading" class="text-2xl font-bold mb-1">Receive</h1>
-          <p class="text-slate-500 text-sm mb-6">Connect via a share link, or enter a peer ID directly.</p>
+        <!-- RECEIVE -->
+        <section id="panel-receive" class="panel" aria-labelledby="receive-heading">
+          <div class="panel-header">
+            <h1 id="receive-heading">Receive</h1>
+            <p class="panel-desc">Paste a share link or enter the sender's Peer ID to connect.</p>
+          </div>
 
-          <div id="receive-paste" class="space-y-4">
-            <!-- URL / link input -->
-            <div class="bg-panel border border-white/[0.05] rounded-2xl p-5 space-y-3">
-              <label for="receive-url-input" class="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
-                Paste link
-              </label>
-              <input id="receive-url-input" type="url" autocomplete="off" spellcheck="false"
-                placeholder="https://…?peer=abc123  or  abc123#key"
-                class="w-full bg-input border border-white/[0.06] rounded-xl px-4 py-3 text-sm text-slate-200 placeholder-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 transition-shadow"
-                aria-describedby="receive-url-hint">
-              <p id="receive-url-hint" class="text-[11px] text-slate-600">Accepts full URLs or raw peer IDs (with optional #key).</p>
-              <button id="connect-btn" type="button"
-                class="bg-brand hover:bg-brand/85 text-bg font-semibold px-5 py-2.5 rounded-xl text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60 w-full sm:w-auto">
-                Connect
-              </button>
+          <div class="card receive-card">
+            <div class="form-group">
+              <label for="receive-input" class="label">Share link or Peer ID</label>
+              <input type="text" id="receive-input" class="input mono" placeholder="https://… or abc123#key" autocomplete="off" spellcheck="false">
+              <p class="hint">Accepts full URLs, raw IDs, or ID#key combinations.</p>
             </div>
 
-            <!-- Manual peer ID + optional key -->
-            <div class="bg-panel border border-white/[0.05] rounded-2xl p-5 space-y-3">
-              <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Or enter peer ID manually</p>
-              <div class="flex flex-col sm:flex-row gap-2">
-                <div class="flex-1">
-                  <label for="peer-id-input" class="sr-only">Peer ID</label>
-                  <input id="peer-id-input" type="text" autocomplete="off" spellcheck="false"
-                    placeholder="Peer ID"
-                    class="w-full bg-input border border-white/[0.06] rounded-xl px-4 py-2.5 text-sm text-slate-200 placeholder-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 font-mono transition-shadow">
-                </div>
-                <div class="flex-1">
-                  <label for="peer-key-input" class="sr-only">Encryption key (optional)</label>
-                  <input id="peer-key-input" type="text" autocomplete="off" spellcheck="false"
-                    placeholder="AES key (optional)"
-                    class="w-full bg-input border border-white/[0.06] rounded-xl px-4 py-2.5 text-sm text-slate-200 placeholder-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 font-mono transition-shadow">
-                </div>
-              </div>
-              <p class="text-[11px] text-slate-600">Enter the peer ID from the sender. Leave the key blank for standard mode.</p>
-              <button id="connect-key-btn" type="button"
-                class="bg-surface hover:bg-input text-slate-200 font-semibold px-5 py-2.5 rounded-xl text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 w-full sm:w-auto border border-white/[0.06]">
-                Connect with ID
+            <div class="form-group" id="key-group" hidden>
+              <label for="receive-key" class="label">Encryption key <span class="hint-inline">(optional)</span></label>
+              <input type="text" id="receive-key" class="input mono" placeholder="AES key" autocomplete="off" spellcheck="false">
+            </div>
+
+            <div class="form-actions">
+              <button type="button" id="toggle-key-btn" class="btn text secondary">
+                <i class="ph ph-key" aria-hidden="true"></i> <span id="toggle-key-text">Add key</span>
               </button>
+              <button type="button" id="connect-btn" class="btn">Connect</button>
             </div>
           </div>
 
-          <div id="receive-status" class="hidden mt-4 flex items-center gap-2 text-sm text-slate-400 bg-panel border border-white/[0.05] rounded-xl px-4 py-3" aria-live="polite">
-            <i class="ph ph-circle-notch animate-spin text-brand shrink-0" aria-hidden="true"></i>
+          <div id="receive-status" class="receive-status" hidden>
+            <i class="ph ph-circle-notch spin" aria-hidden="true"></i>
             <span id="receive-status-text">Connecting…</span>
           </div>
         </section>
 
-        <!-- HELP PANEL -->
-        <section id="panel-help" class="panel hidden p-5 md:p-8 max-w-2xl mx-auto w-full animate-fade-in space-y-4" aria-labelledby="help-heading">
-          <h1 id="help-heading" class="text-2xl font-bold mb-2">How DropZone works</h1>
-
-          <div class="bg-panel border border-white/[0.05] rounded-2xl p-5 space-y-2">
-            <h2 class="font-semibold text-white flex items-center gap-2 text-sm">
-              <i class="ph ph-globe text-brand text-base" aria-hidden="true"></i>Peer-to-peer — no cloud
-            </h2>
-            <p class="text-sm text-slate-400 leading-relaxed">Files travel directly between browsers using WebRTC. A lightweight signaling server helps you find each other, then steps aside. Your data never touches a server.</p>
+        <!-- HELP -->
+        <section id="panel-help" class="panel" aria-labelledby="help-heading">
+          <div class="panel-header">
+            <h1 id="help-heading">How it works</h1>
+            <p class="panel-desc">DropZone sends data directly between browsers.</p>
           </div>
-
-          <div class="bg-panel border border-white/[0.05] rounded-2xl p-5 space-y-2">
-            <h2 class="font-semibold text-white flex items-center gap-2 text-sm">
-              <i class="ph ph-lock-key text-brand text-base" aria-hidden="true"></i>Two security modes
-            </h2>
-            <p class="text-sm text-slate-400 leading-relaxed">
-              <strong class="text-slate-200">Standard</strong> uses WebRTC's built-in DTLS encryption — secure for most transfers.
-              <strong class="text-slate-200">AES-256-GCM</strong> adds a second end-to-end layer. The key exists only in your URL hash and is never sent to any server.
-            </p>
-          </div>
-
-          <div class="bg-panel border border-white/[0.05] rounded-2xl p-5 space-y-2">
-            <h2 class="font-semibold text-white flex items-center gap-2 text-sm">
-              <i class="ph ph-arrows-left-right text-brand text-base" aria-hidden="true"></i>Adaptive chunking
-            </h2>
-            <p class="text-sm text-slate-400 leading-relaxed">DropZone measures round-trip latency in real time and adjusts packet size and send window automatically. Memory stays low and speed stays high.</p>
-          </div>
-
-          <div class="bg-panel border border-white/[0.05] rounded-2xl p-5 space-y-2">
-            <h2 class="font-semibold text-white flex items-center gap-2 text-sm">
-              <i class="ph ph-hard-drives text-brand text-base" aria-hidden="true"></i>Streaming large files
-            </h2>
-            <p class="text-sm text-slate-400 leading-relaxed">A Service Worker streams incoming data directly to disk. Multi-gigabyte transfers complete without exhausting RAM.</p>
-          </div>
-
-          <div class="bg-panel border border-white/[0.05] rounded-2xl p-5 space-y-2">
-            <h2 class="font-semibold text-white flex items-center gap-2 text-sm">
-              <i class="ph ph-key text-brand text-base" aria-hidden="true"></i>Connecting with a key
-            </h2>
-            <p class="text-sm text-slate-400 leading-relaxed">Go to <strong class="text-slate-200">Receive</strong> and paste the full share link, or enter the peer ID and optional AES key separately in the manual fields. This is useful if you received the link and key through different channels for extra security.</p>
+          <div class="help-grid">
+            <article class="card help-card">
+              <div class="help-icon"><i class="ph ph-globe" aria-hidden="true"></i></div>
+              <h3>Peer-to-peer</h3>
+              <p>Files travel directly via WebRTC. A signaling server helps you find each other, then steps aside. Data never touches a server.</p>
+            </article>
+            <article class="card help-card">
+              <div class="help-icon"><i class="ph ph-lock-key" aria-hidden="true"></i></div>
+              <h3>Two security modes</h3>
+              <p><strong>Standard</strong> uses WebRTC's built-in DTLS encryption. <strong>AES-256-GCM</strong> adds a second end-to-end layer with a key in your URL hash.</p>
+            </article>
+            <article class="card help-card">
+              <div class="help-icon"><i class="ph ph-arrows-left-right" aria-hidden="true"></i></div>
+              <h3>Adaptive chunking</h3>
+              <p>DropZone measures latency in real time and adjusts packet size automatically. Transfers stay fast without exhausting memory.</p>
+            </article>
+            <article class="card help-card">
+              <div class="help-icon"><i class="ph ph-hard-drives" aria-hidden="true"></i></div>
+              <h3>Large files</h3>
+              <p>Transfers complete in chunks and assemble into a downloadable blob. Multi-gigabyte files are supported within your browser's limits.</p>
+            </article>
           </div>
         </section>
 
-        <!-- SETTINGS PANEL -->
-        <section id="panel-settings" class="panel hidden p-5 md:p-8 max-w-2xl mx-auto w-full animate-fade-in space-y-5" aria-labelledby="settings-heading">
-          <h1 id="settings-heading" class="text-2xl font-bold mb-2">Settings</h1>
+        <!-- SETTINGS -->
+        <section id="panel-settings" class="panel" aria-labelledby="settings-heading">
+          <div class="panel-header">
+            <h1 id="settings-heading">Settings</h1>
+            <p class="panel-desc">Customize your transfer experience.</p>
+          </div>
 
-          <div class="bg-panel border border-white/[0.05] rounded-2xl p-5 space-y-5">
-
-            <div>
-              <label for="setting-security" class="text-[11px] font-semibold text-slate-500 uppercase tracking-widest block mb-2">Security mode</label>
-              <div class="relative">
-                <select id="setting-security"
-                  class="w-full bg-input border border-white/[0.06] rounded-xl px-3.5 py-2.5 text-sm text-slate-200 appearance-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 cursor-pointer pr-8">
+          <div class="card settings-card">
+            <div class="form-group">
+              <label for="setting-security" class="label">Security mode</label>
+              <div class="select-wrap">
+                <select id="setting-security" class="input">
                   <option value="standard">Standard (WebRTC DTLS)</option>
                   <option value="aes">AES-256-GCM (end-to-end)</option>
                 </select>
-                <i class="ph ph-caret-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs pointer-events-none" aria-hidden="true"></i>
+                <i class="ph ph-caret-down" aria-hidden="true"></i>
               </div>
-              <p class="text-xs text-slate-500 mt-2">Standard is fastest. AES adds a second encryption layer via a key in the URL hash — never sent to any server.</p>
+              <p class="hint">Standard is fastest. AES adds a second encryption layer via a key in the URL hash.</p>
             </div>
 
-            <div class="h-px bg-white/[0.05]" role="separator"></div>
-
-            <div>
-              <label for="setting-chunk" class="text-[11px] font-semibold text-slate-500 uppercase tracking-widest block mb-2">Chunk strategy</label>
-              <div class="relative">
-                <select id="setting-chunk"
-                  class="w-full bg-input border border-white/[0.06] rounded-xl px-3.5 py-2.5 text-sm text-slate-200 appearance-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 cursor-pointer pr-8">
+            <div class="form-group">
+              <label for="setting-chunk" class="label">Chunk strategy</label>
+              <div class="select-wrap">
+                <select id="setting-chunk" class="input">
                   <option value="adaptive">Adaptive (recommended)</option>
                   <option value="16">Fixed 16 KB</option>
                   <option value="32">Fixed 32 KB</option>
                   <option value="64">Fixed 64 KB</option>
                   <option value="128">Fixed 128 KB</option>
                 </select>
-                <i class="ph ph-caret-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs pointer-events-none" aria-hidden="true"></i>
+                <i class="ph ph-caret-down" aria-hidden="true"></i>
               </div>
-              <p class="text-xs text-slate-500 mt-2">Adaptive tunes chunk size and window size based on live RTT. Fixed modes are useful for testing specific conditions.</p>
+              <p class="hint">Adaptive tunes chunk size based on live latency. Fixed modes are useful for testing.</p>
             </div>
 
-            <div class="h-px bg-white/[0.05]" role="separator"></div>
-
-            <div class="flex items-center justify-between gap-4">
-              <div>
-                <p class="text-sm text-slate-300 font-medium">Auto-download</p>
-                <p class="text-[11px] text-slate-500 mt-0.5">Automatically save files when a transfer completes. Browsers may block multiple simultaneous pop-ups.</p>
+            <div class="form-group toggle-group">
+              <div class="toggle-info">
+                <label for="setting-autodl" class="label">Auto-download</label>
+                <p class="hint">Automatically save files when a transfer completes.</p>
               </div>
-              <button id="setting-autodl" type="button" role="switch" aria-checked="false"
-                class="relative shrink-0 w-10 h-5 rounded-full bg-input border border-white/[0.08] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
-                <span id="setting-autodl-knob" class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-slate-500 transition-all duration-200" aria-hidden="true"></span>
+              <button type="button" id="setting-autodl" class="toggle" role="switch" aria-checked="false" aria-label="Auto-download">
+                <span class="toggle-knob" aria-hidden="true"></span>
               </button>
             </div>
 
-            <div class="h-px bg-white/[0.05]" role="separator"></div>
+            <div class="limits">
+              <div class="limit-row"><span>Max files</span><span>50</span></div>
+              <div class="limit-row"><span>Max file size</span><span>2 GB</span></div>
+              <div class="limit-row"><span>Max total size</span><span>5 GB</span></div>
+            </div>
 
-            <dl class="bg-input rounded-xl p-3 space-y-1.5 text-xs text-slate-500">
-              <div class="flex justify-between"><dt>Max files</dt><dd class="text-slate-400 font-medium">50</dd></div>
-              <div class="flex justify-between"><dt>Max file size</dt><dd class="text-slate-400 font-medium">2 GB</dd></div>
-              <div class="flex justify-between"><dt>Max total size</dt><dd class="text-slate-400 font-medium">5 GB</dd></div>
-            </dl>
+            <button type="button" id="reset-settings-btn" class="btn text danger">Reset to defaults</button>
           </div>
-
-          <button id="reset-settings-btn" type="button"
-            class="text-xs text-slate-500 hover:text-red-400 transition-colors py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/40 rounded">
-            Reset to defaults
-          </button>
         </section>
+      </main>
+    </div>
+  </div>
 
-      </main><!-- /main -->
-
-      <!-- ============================================
-           MOBILE BOTTOM NAV
-      ============================================ -->
-      <nav class="md:hidden fixed bottom-0 inset-x-0 z-20 bg-panel border-t border-white/[0.04] flex items-center justify-around px-2 py-2 safe-area-inset-bottom"
-        aria-label="Quick navigation">
-        <button data-panel="send"   class="mobile-nav-btn text-[#a8c7fa] flex flex-col items-center gap-0.5 px-4 py-1.5 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50" aria-label="Send">
-          <i class="ph ph-paper-plane-tilt text-xl" aria-hidden="true"></i>
-          <span class="text-[10px] font-medium">Send</span>
-        </button>
-        <button data-panel="receive" class="mobile-nav-btn text-slate-500 flex flex-col items-center gap-0.5 px-4 py-1.5 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50" aria-label="Receive">
-          <i class="ph ph-download-simple text-xl" aria-hidden="true"></i>
-          <span class="text-[10px] font-medium">Receive</span>
-        </button>
-        <button data-panel="help"    class="mobile-nav-btn text-slate-500 flex flex-col items-center gap-0.5 px-4 py-1.5 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50" aria-label="Help">
-          <i class="ph ph-question text-xl" aria-hidden="true"></i>
-          <span class="text-[10px] font-medium">Help</span>
-        </button>
-        <button data-panel="settings" class="mobile-nav-btn text-slate-500 flex flex-col items-center gap-0.5 px-4 py-1.5 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50" aria-label="Settings">
-          <i class="ph ph-gear text-xl" aria-hidden="true"></i>
-          <span class="text-[10px] font-medium">Settings</span>
-        </button>
-      </nav>
-
-    </div><!-- /main content wrapper -->
-  </div><!-- /layout wrapper -->
-
-  <!-- ======================================================
-       TRANSFER OVERLAY
-  ====================================================== -->
-  <div id="transfer-overlay" class="hidden fixed inset-0 z-50 bg-bg/80 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="transfer-status">
-    <div class="w-full max-w-xl bg-panel border border-white/[0.05] p-5 md:p-6 rounded-2xl flex flex-col gap-4 animate-slide-up max-h-[90dvh] overflow-hidden">
-
-      <div class="flex justify-between items-start shrink-0">
+  <!-- Transfer Overlay -->
+  <div id="transfer-overlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="transfer-title" hidden>
+    <div class="overlay-card transfer-card">
+      <div class="transfer-header">
         <div>
-          <h2 id="transfer-status" class="text-xl font-bold text-white">Connecting</h2>
-          <p id="transfer-subtitle" class="text-slate-500 text-xs mt-0.5">Establishing channel…</p>
+          <h2 id="transfer-title" class="transfer-title">Transfer</h2>
+          <p id="transfer-subtitle" class="transfer-subtitle">Establishing channel…</p>
         </div>
-        <div class="text-right">
-          <p id="transfer-speed" class="text-sm font-semibold text-brand">—</p>
-          <p id="transfer-eta" class="text-slate-600 text-[11px]">Calculating</p>
+        <div class="transfer-pace">
+          <p id="transfer-speed">—</p>
+          <p id="transfer-eta">Calculating…</p>
         </div>
       </div>
 
-      <!-- Master progress -->
-      <div class="shrink-0">
-        <div class="w-full bg-white/[0.06] rounded-full h-1.5 overflow-hidden"
-          role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
-          id="progress-wrapper" aria-label="Overall transfer progress">
-          <div id="master-progress" class="bg-brand h-full w-0 transition-all duration-300 rounded-full"></div>
+      <div class="progress-master" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progress-wrapper" aria-label="Overall progress">
+        <div class="progress-track">
+          <div id="master-progress" class="progress-fill" style="width:0%"></div>
         </div>
-        <div class="flex justify-between mt-1.5 text-[11px] text-slate-600">
+        <div class="progress-meta">
           <span id="master-percent">0%</span>
           <span id="master-bytes">0 B / 0 B</span>
         </div>
       </div>
 
-      <!-- Queue -->
-      <div class="bg-bg rounded-xl overflow-hidden border border-white/[0.04] flex-1 min-h-0 flex flex-col">
-        <div class="px-3.5 py-2 flex justify-between items-center border-b border-white/[0.04] shrink-0">
-          <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Queue</span>
-          <span id="queue-status" class="text-[11px] text-slate-500">0 / 0</span>
+      <div class="queue-wrap">
+        <div class="queue-header">
+          <span>Queue</span>
+          <span id="queue-status">0 / 0</span>
         </div>
-        <div id="transfer-queue" class="overflow-y-auto p-1 flex-1" role="list" aria-label="File transfer queue"></div>
+        <div id="transfer-queue" class="queue-list" role="list" aria-label="Transfer queue"></div>
       </div>
 
-      <!-- Controls -->
-      <div class="flex gap-2 shrink-0">
-        <button id="pause-btn" type="button" aria-pressed="false"
-          class="flex items-center gap-1.5 bg-surface hover:bg-input text-slate-200 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
-          <i class="ph ph-pause text-base" id="pause-icon" aria-hidden="true"></i>
+      <div class="transfer-controls">
+        <button type="button" id="pause-btn" class="btn secondary" aria-pressed="false">
+          <i class="ph ph-pause" id="pause-icon" aria-hidden="true"></i>
           <span id="pause-text">Pause</span>
         </button>
-        <button id="cancel-transfer-btn" type="button"
-          class="ml-auto flex items-center gap-1.5 text-slate-500 hover:text-red-400 hover:bg-red-400/8 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/50">
-          <i class="ph ph-x text-base" aria-hidden="true"></i>Cancel
+        <button type="button" id="cancel-transfer-btn" class="btn text danger">
+          <i class="ph ph-x" aria-hidden="true"></i> Cancel
         </button>
       </div>
 
-      <!-- Stats row -->
-      <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-600 shrink-0">
-        <span class="flex items-center gap-1.5">
-          <span class="w-1.5 h-1.5 rounded-full bg-brand/60 animate-pulse-soft" aria-hidden="true"></span>
-          RTT <span id="rtt-display" class="text-slate-400 font-medium ml-0.5">—</span>ms
+      <div class="transfer-stats">
+        <span class="stat">
+          <span class="stat-dot warning"></span>
+          Retries <strong id="retry-display">0</strong>
         </span>
-        <span class="flex items-center gap-1.5">
-          <span class="w-1.5 h-1.5 rounded-full bg-warning/60 animate-pulse-soft" aria-hidden="true"></span>
-          Retries <span id="retry-display" class="text-slate-400 font-medium ml-0.5">0</span>
-        </span>
-        <span class="flex items-center gap-1.5">
-          <span class="w-1.5 h-1.5 rounded-full bg-success/60 animate-pulse-soft" aria-hidden="true"></span>
-          <span id="chunk-display" class="text-slate-400 font-medium">0</span> chunks
+        <span class="stat">
+          <span class="stat-dot success"></span>
+          <strong id="chunk-display">0</strong> chunks
         </span>
       </div>
     </div>
   </div>
 
-  <!-- ======================================================
-       DONE OVERLAY
-  ====================================================== -->
-  <div id="done-overlay" class="hidden fixed inset-0 z-50 bg-bg/80 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="done-heading">
-    <div class="w-full max-w-md bg-panel border border-white/[0.05] p-6 rounded-2xl flex flex-col items-center gap-5 animate-slide-up max-h-[90dvh] overflow-y-auto">
-      <div class="bg-emerald-500/10 text-emerald-400 p-3.5 rounded-2xl shrink-0">
-        <i class="ph ph-check-circle text-3xl" aria-hidden="true"></i>
-      </div>
-      <div class="text-center">
-        <h2 id="done-heading" class="text-2xl font-bold text-white">Complete</h2>
-        <p id="done-summary" class="text-slate-500 text-sm mt-1">Transfer finished.</p>
+  <!-- Done Overlay -->
+  <div id="done-overlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="done-title" hidden>
+    <div class="overlay-card done-card">
+      <div class="done-hero">
+        <div class="done-icon"><i class="ph ph-check-circle" aria-hidden="true"></i></div>
+        <h2 id="done-title">Complete</h2>
+        <p id="done-summary">Transfer finished.</p>
       </div>
 
-      <!-- Received files -->
-      <div id="done-files-container" class="hidden w-full bg-bg border border-white/[0.04] rounded-xl overflow-hidden">
-        <div class="px-4 py-2.5 border-b border-white/[0.04]">
-          <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Received</span>
+      <div id="done-files-container" class="done-files" hidden>
+        <div class="done-files-header">Received files</div>
+        <div id="done-file-list" class="done-files-list" role="list" aria-label="Received files"></div>
+        <div class="done-files-footer">
+          <button type="button" id="download-all-btn" class="btn secondary">
+            <i class="ph ph-download-simple" aria-hidden="true"></i> Download all
+          </button>
         </div>
-        <div id="done-file-list" class="max-h-52 overflow-y-auto" role="list" aria-label="Received files"></div>
       </div>
 
-      <!-- Stats -->
-      <dl class="w-full bg-white/[0.03] rounded-xl p-4 space-y-2 text-xs">
-        <div class="flex justify-between"><dt class="text-slate-500">Duration</dt>     <dd id="stat-duration" class="text-slate-300 font-medium">—</dd></div>
-        <div class="flex justify-between"><dt class="text-slate-500">Avg speed</dt>    <dd id="stat-speed"    class="text-slate-300 font-medium">—</dd></div>
-        <div class="flex justify-between"><dt class="text-slate-500">Chunks</dt>       <dd id="stat-chunks"   class="text-slate-300 font-medium">—</dd></div>
-        <div class="flex justify-between"><dt class="text-slate-500">Retries</dt>      <dd id="stat-retries"  class="text-slate-300 font-medium">—</dd></div>
+      <dl class="done-stats">
+        <div><dt>Duration</dt><dd id="stat-duration">—</dd></div>
+        <div><dt>Avg speed</dt><dd id="stat-speed">—</dd></div>
+        <div><dt>Chunks</dt><dd id="stat-chunks">—</dd></div>
+        <div><dt>Retries</dt><dd id="stat-retries">—</dd></div>
       </dl>
 
-      <button id="done-close-btn" type="button"
-        class="w-full bg-brand hover:bg-brand/85 text-bg px-5 py-2.5 rounded-xl font-semibold text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60">
-        Close
-      </button>
+      <button type="button" id="done-close-btn" class="btn">Close</button>
     </div>
   </div>
 
-  <!-- ======================================================
-       ERROR OVERLAY
-  ====================================================== -->
-  <div id="error-overlay" class="hidden fixed inset-0 z-50 bg-bg/80 backdrop-blur-sm flex items-center justify-center p-4" role="alertdialog" aria-modal="true" aria-labelledby="error-title" aria-describedby="error-message">
-    <div class="w-full max-w-md bg-panel border border-white/[0.05] p-6 rounded-2xl flex flex-col items-center gap-5 animate-slide-up">
-      <div class="bg-red-500/10 text-red-400 p-3.5 rounded-2xl shrink-0">
-        <i class="ph ph-warning-circle text-3xl" aria-hidden="true"></i>
+  <!-- Error Overlay -->
+  <div id="error-overlay" class="overlay" role="alertdialog" aria-modal="true" aria-labelledby="error-title" aria-describedby="error-message" hidden>
+    <div class="overlay-card error-card">
+      <div class="error-hero">
+        <div class="error-icon"><i class="ph ph-warning-circle" aria-hidden="true"></i></div>
+        <h2 id="error-title">Error</h2>
+        <p id="error-message">Something went wrong.</p>
       </div>
-      <div class="text-center">
-        <h2 id="error-title" class="text-2xl font-bold text-white">Error</h2>
-        <p id="error-message" class="text-slate-500 mt-1 text-sm">Something went wrong.</p>
-      </div>
-      <dl id="error-diagnostics" class="w-full bg-bg rounded-xl border border-white/[0.04] p-3 space-y-1.5 text-xs font-mono" aria-label="Error diagnostics"></dl>
-      <button id="error-close-btn" type="button"
-        class="w-full bg-brand hover:bg-brand/85 text-bg px-5 py-2.5 rounded-xl font-semibold text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60">
-        Start Over
-      </button>
+      <dl id="error-diagnostics" class="error-diagnostics" aria-label="Diagnostics"></dl>
+      <button type="button" id="error-close-btn" class="btn">Start Over</button>
     </div>
   </div>
-
-  <!-- App JS (separate file) -->
-  <script src="dropzone.js" type="module"></script>
 </body>
 </html>
