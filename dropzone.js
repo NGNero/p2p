@@ -5,9 +5,9 @@
 // CONFIG
 // ============================================================
 const CONFIG = Object.freeze({
-  MAX_FILES: 50,
-  MAX_FILE_SIZE: 2 * 1024 * 1024 * 1024,
-  MAX_TOTAL_SIZE: 5 * 1024 * 1024 * 1024,
+  MAX_FILES: 200,
+  MAX_FILE_SIZE: 5 * 1024 * 1024 * 1024,
+  MAX_TOTAL_SIZE: 50 * 1024 * 1024 * 1024,
   MAX_RETRIES: 5,
   CHUNK_TIMEOUT: 4000,
   INITIAL_CHUNK_SIZE: 32 * 1024,
@@ -38,24 +38,16 @@ const el = (tag, cls, attrs = {}, children = []) => {
 };
 
 // ============================================================
-// SETTINGS STORE
+// SAFE SEND HELPER
 // ============================================================
-class SettingsStore {
-  static KEYS = { security: 'standard', chunkMode: 'adaptive', autoDownload: false };
-  static load() {
-    return {
-      security: localStorage.getItem('dz_security') || 'standard',
-      chunkMode: localStorage.getItem('dz_chunkMode') || 'adaptive',
-      autoDownload: localStorage.getItem('dz_autoDownload') === 'true',
-    };
-  }
-  static save(key, value) {
-    try { localStorage.setItem(`dz_${key}`, String(value)); } catch {}
-  }
-  static reset() {
-    for (const k of Object.keys(SettingsStore.KEYS)) {
-      try { localStorage.removeItem(`dz_${k}`); } catch {}
-    }
+function safeSend(conn, data) {
+  if (!conn || !conn.open) return false;
+  try {
+    conn.send(data);
+    return true;
+  } catch (err) {
+    console.warn('[Peer] Send failed:', err);
+    return false;
   }
 }
 
@@ -165,7 +157,7 @@ class ChunkedSender {
     this.item = item; this.conn = conn; this.key = cryptoKey;
     this.onProgress = onProgress; this.onDone = onDone;
     this.onError = onError; this.onRetry = onRetry; this.onChunkSent = onChunkSent;
-    this.chunkSize = item.fixedChunk || CONFIG.INITIAL_CHUNK_SIZE;
+    this.chunkSize = CONFIG.INITIAL_CHUNK_SIZE;
     this.windowSize = CONFIG.INITIAL_WINDOW;
     this.inFlight = new Map();
     this.nextSeq = 0; this.offset = 0;
@@ -173,27 +165,33 @@ class ChunkedSender {
     this.retries = 0; this.rtts = [];
     this.timer = null; this.paused = false;
     this.cancelled = false; this.done = false;
+    this.awaitingFileDoneAck = false;
     this._filling = false;
+    this._fileDoneTimeout = null;
     if (item.content) this.textBuf = new TextEncoder().encode(item.content);
   }
+
   start() {
-    this.conn.send({
+    const ok = safeSend(this.conn, {
       type: 'file-header', id: this.item.id,
       name: sanitizeFilename(this.item.name),
       size: this.total, filetype: this.item.type,
       isText: !!this.item.content
     });
+    if (!ok) this.onError('Connection lost before file header could be sent');
   }
+
   onAckHeader() {
     this.fillWindow();
     this.timer = setInterval(() => this.checkTimeouts(), 600);
   }
+
   async fillWindow() {
-    if (this._filling || this.paused || this.cancelled || this.done) return;
+    if (this._filling || this.paused || this.cancelled || this.done || this.awaitingFileDoneAck) return;
     this._filling = true;
     try {
       while (this.inFlight.size < this.windowSize && this.offset < this.total) {
-        if (!this.conn.open) break;
+        if (!this.conn || !this.conn.open) break;
         const end = Math.min(this.offset + this.chunkSize, this.total);
         let buf;
         if (this.textBuf) {
@@ -204,17 +202,24 @@ class ChunkedSender {
         let payload = buf;
         if (this.key) payload = await CryptoManager.encryptBuffer(buf, this.key);
         const seq = this.nextSeq++;
-        this.conn.send({ type: 'chunk', id: this.item.id, seq, data: payload, encrypted: !!this.key });
+        const ok = safeSend(this.conn, {
+          type: 'chunk', id: this.item.id, seq,
+          data: payload, encrypted: !!this.key
+        });
+        if (!ok) break;
         this.inFlight.set(seq, { payload, time: performance.now(), retries: 0 });
         this.offset = end;
         if (this.onChunkSent) this.onChunkSent();
       }
-      if (this.inFlight.size === 0 && this.offset >= this.total) this.finish();
+      if (this.inFlight.size === 0 && this.offset >= this.total && !this.awaitingFileDoneAck) {
+        this.sendFileDone();
+      }
     } catch (e) {
       if (!this.cancelled) this.onError('Read/encrypt error: ' + e.message);
     }
     this._filling = false;
   }
+
   readSlice(slice) {
     return new Promise((res, rej) => {
       const r = new FileReader();
@@ -223,17 +228,20 @@ class ChunkedSender {
       r.readAsArrayBuffer(slice);
     });
   }
+
   onAck(seq) {
+    if (this.done || this.cancelled) return;
     const pkt = this.inFlight.get(seq);
     if (!pkt) return;
     this.inFlight.delete(seq);
     this.acked++;
     this.rtts.push(performance.now() - pkt.time);
     if (this.rtts.length > CONFIG.RTT_HISTORY) this.rtts.shift();
-    if (!this.item.fixedChunk) this.adapt();
+    this.adapt();
     this.onProgress(this.offset, this.total);
     this.fillWindow();
   }
+
   adapt() {
     if (this.rtts.length < 3) return;
     const avg = this.rtts.reduce((a, b) => a + b, 0) / this.rtts.length;
@@ -246,7 +254,9 @@ class ChunkedSender {
       this.retries = 0;
     }
   }
+
   checkTimeouts() {
+    if (!this.conn || !this.conn.open) return;
     const now = performance.now();
     for (const [seq, pkt] of this.inFlight) {
       if (now - pkt.time > CONFIG.CHUNK_TIMEOUT) {
@@ -256,20 +266,39 @@ class ChunkedSender {
         }
         pkt.retries++; this.retries++;
         pkt.time = now;
-        if (this.conn.open) this.conn.send({ type: 'chunk', id: this.item.id, seq, data: pkt.payload, encrypted: !!this.key });
+        safeSend(this.conn, { type: 'chunk', id: this.item.id, seq, data: pkt.payload, encrypted: !!this.key });
         if (this.onRetry) this.onRetry(this.retries);
       }
     }
   }
-  pause() { this.paused = true; }
-  resume() { this.paused = false; this.fillWindow(); }
-  cancel() { this.cancelled = true; clearInterval(this.timer); this.inFlight.clear(); }
-  finish() {
+
+  sendFileDone() {
+    if (this.awaitingFileDoneAck || this.done) return;
+    this.awaitingFileDoneAck = true;
+    clearInterval(this.timer);
+    safeSend(this.conn, { type: 'file-done', id: this.item.id });
+    this._fileDoneTimeout = setTimeout(() => {
+      if (!this.done && !this.cancelled) {
+        safeSend(this.conn, { type: 'file-done', id: this.item.id });
+      }
+    }, 2000);
+  }
+
+  onAckFileDone() {
     if (this.done) return;
     this.done = true;
-    clearInterval(this.timer);
-    this.conn.send({ type: 'file-done', id: this.item.id });
+    clearTimeout(this._fileDoneTimeout);
+    this.inFlight.clear();
     this.onDone();
+  }
+
+  pause() { this.paused = true; }
+  resume() { this.paused = false; this.fillWindow(); }
+  cancel() {
+    this.cancelled = true;
+    clearInterval(this.timer);
+    clearTimeout(this._fileDoneTimeout);
+    this.inFlight.clear();
   }
 }
 
@@ -284,14 +313,18 @@ class ChunkedReceiver {
     this.receivedBytes = 0;
     this.textChunks = []; this.blobChunks = [];
     this.complete = false; this.chunkQueue = []; this.processing = false;
+    this.fileDoneReceived = false;
   }
-  async start() {
-    this.conn.send({ type: 'ack-header', id: this.item.id });
+
+  start() {
+    safeSend(this.conn, { type: 'ack-header', id: this.item.id });
   }
+
   onChunk(seq, data, encrypted) {
     this.chunkQueue.push({ seq, data, encrypted });
     if (!this.processing) this._drain();
   }
+
   async _drain() {
     this.processing = true;
     while (this.chunkQueue.length > 0) {
@@ -301,18 +334,19 @@ class ChunkedReceiver {
     }
     this.processing = false;
   }
+
   async _processChunk(seq, data, encrypted) {
     if (this.complete) return;
     let payload = data;
     if (encrypted && this.key) {
       try { payload = await CryptoManager.decryptBuffer(data, this.key); }
       catch {
-        this.conn.send({ type: 'chunk-error', id: this.item.id, seq, message: 'Decrypt failed' });
+        safeSend(this.conn, { type: 'chunk-error', id: this.item.id, seq, message: 'Decrypt failed' });
         return;
       }
     }
     if (seq < this.expectedSeq) {
-      this.conn.send({ type: 'ack-chunk', id: this.item.id, seq });
+      safeSend(this.conn, { type: 'ack-chunk', id: this.item.id, seq });
       return;
     }
     if (seq === this.expectedSeq) {
@@ -326,10 +360,13 @@ class ChunkedReceiver {
     } else if (seq < this.expectedSeq + CONFIG.MAX_WINDOW * 3) {
       this.buffer.set(seq, payload);
     }
-    this.conn.send({ type: 'ack-chunk', id: this.item.id, seq });
+    safeSend(this.conn, { type: 'ack-chunk', id: this.item.id, seq });
     this.onProgress(this.receivedBytes, this.item.size);
-    if (this.receivedBytes >= this.item.size && this.buffer.size === 0) this._finish();
+    if (this.receivedBytes >= this.item.size && this.buffer.size === 0) {
+      this._finish();
+    }
   }
+
   async _write(buf) {
     this.receivedBytes += buf.byteLength;
     if (this.item.isText) {
@@ -338,6 +375,7 @@ class ChunkedReceiver {
       this.blobChunks.push(new Uint8Array(buf));
     }
   }
+
   _finish() {
     if (this.complete) return;
     this.complete = true;
@@ -348,8 +386,15 @@ class ChunkedReceiver {
       const blob = new Blob(this.blobChunks, { type: this.item.type || 'application/octet-stream' });
       this.item.downloadUrl = URL.createObjectURL(blob);
     }
-    this.conn.send({ type: 'ack-file-done', id: this.item.id });
+    safeSend(this.conn, { type: 'ack-file-done', id: this.item.id });
     this.onDone();
+  }
+
+  onFileDone() {
+    this.fileDoneReceived = true;
+    if (!this.complete && this.receivedBytes >= this.item.size && this.buffer.size === 0) {
+      this._finish();
+    }
   }
 }
 
@@ -358,14 +403,18 @@ class ChunkedReceiver {
 // ============================================================
 class TransferManager {
   constructor() { this._reset(); }
+
   _reset() {
     this.queue = []; this.currentIdx = 0;
     this.isPaused = false; this.isCancelled = false;
     this.senders = new Map(); this.receivers = new Map();
     this.conn = null; this.key = null;
     this.stats = { start: 0, lastUpdate: 0, bytesSince: 0, total: 0, sent: 0, retries: 0, chunks: 0 };
+    this._updateScheduled = false;
+    this._lastDomUpdate = 0;
   }
-  initSender(files, conn, cryptoKey, settings) {
+
+  initSender(files, conn, cryptoKey) {
     this._reset();
     this.conn = conn; this.key = cryptoKey;
     this.queue = files.map((f, i) => ({
@@ -373,14 +422,17 @@ class TransferManager {
       file: f.file || null, content: f.content || null,
       name: sanitizeFilename(f.name), size: f.size,
       type: f.type || 'application/octet-stream',
-      fixedChunk: settings.chunkMode !== 'adaptive' ? parseInt(settings.chunkMode) * 1024 : null,
       sent: 0, _last: 0, status: 'pending',
     }));
     this.stats.total = this.queue.reduce((s, q) => s + q.size, 0);
     this.stats.start = this.stats.lastUpdate = performance.now();
     this.renderQueue(); this.updateMaster();
-    conn.send({ type: 'manifest', files: this.queue.map(q => ({ id: q.id, name: q.name, size: q.size, filetype: q.type, isText: !!q.content })) });
+    safeSend(conn, {
+      type: 'manifest',
+      files: this.queue.map(q => ({ id: q.id, name: q.name, size: q.size, filetype: q.type, isText: !!q.content }))
+    });
   }
+
   initReceiver(manifest, conn, cryptoKey) {
     this._reset();
     this.conn = conn; this.key = cryptoKey;
@@ -394,7 +446,9 @@ class TransferManager {
     this.stats.start = this.stats.lastUpdate = performance.now();
     this.renderQueue(); this.updateMaster();
   }
+
   onAckManifest() { this.startNextFile(); }
+
   startNextFile() {
     if (this.isCancelled) return;
     const next = this.queue.find(q => q.status === 'pending');
@@ -402,16 +456,19 @@ class TransferManager {
     next.status = 'active';
     this.currentIdx = this.queue.indexOf(next);
     this.renderQueue();
+
     const sender = new ChunkedSender(next, this.conn, this.key,
       (offset) => {
         next.sent = offset;
         this.stats.sent = this.queue.reduce((s, q) => s + q.sent, 0);
         this.stats.bytesSince += offset - next._last;
         next._last = offset;
-        this.updateMaster(); this.renderQueue();
+        this.scheduleUpdate();
       },
       () => {
-        next.status = 'complete'; this.renderQueue();
+        next.status = 'complete';
+        this.senders.delete(next.id);
+        this.renderQueue();
         if (this.queue.every(q => q.status === 'complete')) this.onAllDone();
         else this.startNextFile();
       },
@@ -430,7 +487,12 @@ class TransferManager {
     this.senders.set(next.id, sender);
     sender.start();
   }
-  onAckHeader(id) { const s = this.senders.get(id); if (s) s.onAckHeader(); }
+
+  onAckHeader(id) {
+    const s = this.senders.get(id);
+    if (s) s.onAckHeader();
+  }
+
   onFileHeader(id) {
     const item = this.queue.find(q => q.id === id);
     if (!item) return;
@@ -442,23 +504,43 @@ class TransferManager {
         this.stats.sent = this.queue.reduce((s, q) => s + q.sent, 0);
         this.stats.bytesSince += recv - item._last;
         item._last = recv;
-        this.updateMaster(); this.renderQueue();
+        this.scheduleUpdate();
       },
       () => {
-        item.status = 'complete'; this.renderQueue();
+        item.status = 'complete';
+        this.receivers.delete(id);
+        this.renderQueue();
         if (this.queue.every(q => q.status === 'complete')) this.onAllDone();
       }
     );
     this.receivers.set(id, receiver);
     receiver.start();
   }
+
   onChunk(id, seq, data, encrypted) {
     const rec = this.receivers.get(id);
     if (rec) rec.onChunk(seq, data, encrypted);
   }
-  onAckChunk(id, seq) { const s = this.senders.get(id); if (s) s.onAck(seq); }
-  onFileDone(id) { const r = this.receivers.get(id); if (r) r._finish(); }
-  onAllDone() { App.showDone(this.stats); }
+
+  onAckChunk(id, seq) {
+    const s = this.senders.get(id);
+    if (s) s.onAck(seq);
+  }
+
+  onFileDone(id) {
+    const r = this.receivers.get(id);
+    if (r) r.onFileDone();
+  }
+
+  onAckFileDone(id) {
+    const s = this.senders.get(id);
+    if (s) s.onAckFileDone();
+  }
+
+  onAllDone() {
+    App.showDone(this.stats);
+  }
+
   pause() {
     this.isPaused = !this.isPaused;
     this.senders.forEach(s => this.isPaused ? s.pause() : s.resume());
@@ -467,11 +549,22 @@ class TransferManager {
     if (pi) pi.className = this.isPaused ? 'ph ph-play' : 'ph ph-pause';
     if (pb) pb.setAttribute('aria-pressed', String(this.isPaused));
   }
+
   cancel() {
     this.isCancelled = true;
     this.senders.forEach(s => s.cancel());
-    if (this.conn?.open) this.conn.send({ type: 'cancel' });
+    if (this.conn?.open) safeSend(this.conn, { type: 'cancel' });
   }
+
+  scheduleUpdate() {
+    if (this._updateScheduled) return;
+    this._updateScheduled = true;
+    requestAnimationFrame(() => {
+      this._updateScheduled = false;
+      this.updateMaster();
+    });
+  }
+
   updateMaster() {
     const pct = this.stats.total > 0 ? Math.round(this.stats.sent / this.stats.total * 100) : 0;
     const mp = $('master-progress'), pw = $('progress-wrapper');
@@ -482,6 +575,7 @@ class TransferManager {
     if (mb) mb.textContent = `${fmtBytes(this.stats.sent)} / ${fmtBytes(this.stats.total)}`;
     const done = this.queue.filter(q => q.status === 'complete').length;
     if (qs) qs.textContent = `${done} / ${this.queue.length}`;
+
     const now = performance.now();
     if (now - this.stats.lastUpdate > CONFIG.SPEED_UPDATE_INTERVAL) {
       const elapsed = (now - this.stats.lastUpdate) / 1000;
@@ -493,15 +587,19 @@ class TransferManager {
           const rem = this.stats.total - this.stats.sent;
           te.textContent = rem > 0 ? fmtDuration(Math.round(rem / speed) * 1000) + ' left' : 'Finishing…';
         }
+      } else {
+        if (ts) ts.textContent = '—';
+        if (te) te.textContent = 'Calculating…';
       }
       this.stats.lastUpdate = now;
       this.stats.bytesSince = 0;
     }
   }
+
   renderQueue() {
     const container = $('transfer-queue');
     if (!container) return;
-    container.innerHTML = '';
+    const frag = document.createDocumentFragment();
     this.queue.forEach((item, idx) => {
       const isActive = idx === this.currentIdx && item.status === 'active';
       const pct = item.size > 0 ? Math.round(item.sent / item.size * 100) : 0;
@@ -519,8 +617,10 @@ class TransferManager {
           ]),
         ]),
       ]);
-      container.appendChild(row);
+      frag.appendChild(row);
     });
+    container.innerHTML = '';
+    container.appendChild(frag);
   }
 }
 
@@ -534,7 +634,9 @@ class PeerManager {
     this.peer = null; this.conn = null;
     this.isReceiver = false; this.connectToId = null;
     this.cryptoKey = null; this.pendingShare = null;
+    this.gracefulClose = false;
   }
+
   async init() {
     const params = new URLSearchParams(window.location.search);
     const rawId = params.get('peer') || '';
@@ -545,22 +647,29 @@ class PeerManager {
       try { this.cryptoKey = await CryptoManager.importKey(hash); }
       catch { console.warn('[Crypto] Bad key in URL hash'); }
     }
-    this.peer = new Peer({ debug: 0, config: {
-      iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' },
-      ]
-    }});
+
+    this.peer = new Peer({
+      debug: 0,
+      config: {
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' },
+        ]
+      }
+    });
+
     this.peer.on('open', () => {
       this.onStatus('Ready', 'success');
       App.switchPanel(this.isReceiver ? 'receive' : 'send');
       if (this.isReceiver) this.startReceiver();
     });
+
     this.peer.on('connection', (conn) => {
       if (this.conn) { conn.close(); return; }
       this.conn = conn;
       this._setupConn(conn, false);
     });
+
     this.peer.on('error', (err) => {
       this.onStatus('Error', 'danger');
       const map = {
@@ -573,23 +682,26 @@ class PeerManager {
       const [title, msg] = map[err.type] || ['Error', err.message || 'Unknown error'];
       this.onError(title, msg);
     });
+
     this.peer.on('disconnected', () => {
       this.onStatus('Offline', 'danger');
       if (!this.peer.destroyed) setTimeout(() => this.peer.reconnect(), 2000);
     });
   }
-  async prepareShare(files, settings) {
-    if (settings.security === 'aes' && !this.cryptoKey) {
+
+  async prepareShare(files, securityMode) {
+    if (securityMode === 'aes' && !this.cryptoKey) {
       const key = await CryptoManager.generateKey();
       this.cryptoKey = key;
       const exported = await CryptoManager.exportKey(key);
       history.replaceState(null, '', window.location.pathname + window.location.search + '#' + exported);
-    } else if (settings.security === 'standard') {
+    } else if (securityMode === 'standard') {
       this.cryptoKey = null;
       history.replaceState(null, '', window.location.pathname + window.location.search);
     }
+
     const base = window.location.origin + window.location.pathname;
-    const hash = settings.security === 'aes' ? '#' + window.location.hash.slice(1) : '';
+    const hash = securityMode === 'aes' ? '#' + window.location.hash.slice(1) : '';
     const shareUrl = `${base}?peer=${this.peer.id}${hash}`;
     const shareKey = window.location.hash.slice(1);
 
@@ -605,7 +717,7 @@ class PeerManager {
     if (keyRow) keyRow.hidden = !shareKey;
 
     const badge = $('security-badge-text');
-    if (badge) badge.textContent = settings.security === 'aes' ? 'AES-256-GCM' : 'Standard WebRTC';
+    if (badge) badge.textContent = securityMode === 'aes' ? 'AES-256-GCM' : 'Standard WebRTC';
 
     $('share-view').hidden = false;
     $('view-files').hidden = true;
@@ -613,20 +725,26 @@ class PeerManager {
     $('file-list-container').hidden = true;
 
     if (this.conn?.open) {
-      this.transfer.initSender(files, this.conn, this.cryptoKey, settings);
+      this.transfer.initSender(files, this.conn, this.cryptoKey);
     } else {
-      this.pendingShare = { files, settings };
+      this.pendingShare = { files };
     }
   }
+
   startReceiver() {
-    const conn = this.peer.connect(this.connectToId, { reliable: true, serialization: 'binary', metadata: { version: '2.2' } });
+    const conn = this.peer.connect(this.connectToId, {
+      reliable: true,
+      serialization: 'binary',
+      metadata: { version: '2.2' }
+    });
     this.conn = conn;
     this._setupConn(conn, true);
     const rs = $('receive-status');
-    if (rs) { rs.hidden = false; }
+    if (rs) rs.hidden = false;
     const rst = $('receive-status-text');
     if (rst) rst.textContent = 'Connecting to sender…';
   }
+
   connectWithKey(input, keyStr) {
     let peerId = input;
     let key = keyStr;
@@ -657,10 +775,12 @@ class PeerManager {
       this.startReceiver();
     }
   }
+
   _setupConn(conn, isReceiver) {
     let timeout = setTimeout(() => {
       if (!conn.open) this.onError('Timeout', 'Could not connect within 30s. The sender may be behind a restrictive firewall.');
     }, 30000);
+
     conn.on('open', () => {
       clearTimeout(timeout);
       this.onStatus('Connected', 'success');
@@ -670,41 +790,47 @@ class PeerManager {
         if (ts) ts.textContent = 'Receiving';
         if (tst) tst.textContent = 'Secure channel open';
       } else if (this.pendingShare) {
-        this.transfer.initSender(this.pendingShare.files, conn, this.cryptoKey, this.pendingShare.settings);
+        this.transfer.initSender(this.pendingShare.files, conn, this.cryptoKey);
         this.pendingShare = null;
         const ts = $('transfer-title'), tst = $('transfer-subtitle');
         if (ts) ts.textContent = 'Sending';
         if (tst) tst.textContent = `${this.transfer.queue.length} item${this.transfer.queue.length !== 1 ? 's' : ''}`;
       }
     });
+
     conn.on('data', (data) => {
       if (!data || typeof data !== 'object') return;
       this._handleData(data, isReceiver);
     });
+
     conn.on('close', () => {
       this.onStatus('Closed', 'danger');
       const allDone = this.transfer.queue.length > 0 && this.transfer.queue.every(q => q.status === 'complete');
-      if (!allDone && !this.transfer.isCancelled) {
+      if (!allDone && !this.transfer.isCancelled && !this.gracefulClose) {
         this.onError('Disconnected', 'Peer disconnected before the transfer finished.');
       }
     });
+
     conn.on('error', (err) => this.onError('Channel error', err.message || 'Unknown channel error'));
   }
+
   _handleData(data, isReceiver) {
     if (isReceiver) {
       switch (data.type) {
         case 'manifest':
           if (!Array.isArray(data.files)) return;
           this.transfer.initReceiver(data.files, this.conn, this.cryptoKey);
-          { const ts = $('transfer-title'), tst = $('transfer-subtitle');
+          {
+            const ts = $('transfer-title'), tst = $('transfer-subtitle');
             if (ts) ts.textContent = 'Receiving';
             if (tst) tst.textContent = `${data.files.length} item${data.files.length !== 1 ? 's' : ''}`;
           }
-          this.conn.send({ type: 'ack-manifest' });
+          safeSend(this.conn, { type: 'ack-manifest' });
           break;
         case 'file-header':
           this.transfer.onFileHeader(data.id);
-          { const ts = $('transfer-title');
+          {
+            const ts = $('transfer-title');
             if (ts) ts.textContent = `Receiving: ${data.name}`;
           }
           break;
@@ -713,25 +839,34 @@ class PeerManager {
             this.transfer.onChunk(data.id, data.seq, data.data instanceof ArrayBuffer ? data.data : data.data.buffer, data.encrypted);
           break;
         case 'file-done':
-          this.transfer.onFileDone(data.id); break;
+          this.transfer.onFileDone(data.id);
+          break;
         case 'cancel':
-          this.onError('Cancelled', 'The sender cancelled the transfer.'); break;
+          this.onError('Cancelled', 'The sender cancelled the transfer.');
+          break;
       }
     } else {
       switch (data.type) {
         case 'ack-manifest':
           this.transfer.onAckManifest();
-          { const ts = $('transfer-title'), tst = $('transfer-subtitle');
+          {
+            const ts = $('transfer-title'), tst = $('transfer-subtitle');
             if (ts) ts.textContent = 'Sending';
             if (tst) tst.textContent = `${this.transfer.queue.length} item${this.transfer.queue.length !== 1 ? 's' : ''}`;
           }
           break;
         case 'ack-header':
-          this.transfer.onAckHeader(data.id); break;
+          this.transfer.onAckHeader(data.id);
+          break;
         case 'ack-chunk':
-          this.transfer.onAckChunk(data.id, data.seq); break;
+          this.transfer.onAckChunk(data.id, data.seq);
+          break;
+        case 'ack-file-done':
+          this.transfer.onAckFileDone(data.id);
+          break;
         case 'cancel':
-          this.onError('Cancelled', 'The receiver cancelled the transfer.'); break;
+          this.onError('Cancelled', 'The receiver cancelled the transfer.');
+          break;
       }
     }
   }
@@ -741,10 +876,12 @@ class PeerManager {
 // APP CONTROLLER
 // ============================================================
 const App = {
-  settings: null, transfer: null, peer: null, files: [],
+  settings: { security: 'standard' },
+  transfer: null,
+  peer: null,
+  files: [],
 
   async init() {
-    // Unregister old service workers to prevent stale SW from serving HTML
     if ('serviceWorker' in navigator) {
       try {
         const regs = await navigator.serviceWorker.getRegistrations();
@@ -753,12 +890,11 @@ const App = {
     }
 
     if (!window.isSecureContext) {
-      document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;padding:2rem;background:#09090b;color:#f87171;font-family:Inter,sans-serif;text-align:center;"><h1>HTTPS or localhost required</h1></div>';
+      document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;padding:2rem;background:#fefffe;color:#d93025;font-family:Google Sans,sans-serif;text-align:center;"><h1>HTTPS or localhost required</h1></div>';
       return;
     }
     if (!window.Peer) { Toast.show('PeerJS failed to load. Check your connection.', 'error'); return; }
 
-    this.settings = SettingsStore.load();
     this.transfer = new TransferManager();
     this.peer = new PeerManager(this.transfer, this.updateStatus.bind(this), this.showError.bind(this));
     await this.peer.init();
@@ -817,20 +953,33 @@ const App = {
       cancelDefault(e); dz.classList.remove('is-dragging');
       if (e.dataTransfer.files.length) this.addFiles(e.dataTransfer.files);
     });
+    dz.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        fi.click();
+      }
+    });
     fi.addEventListener('change', (e) => { if (e.target.files.length) this.addFiles(e.target.files); fi.value = ''; });
 
     $('clear-files-btn').addEventListener('click', () => { this.files = []; this.renderFiles(); });
+
     $('confirm-files-btn').addEventListener('click', () => {
       if (!this.files.length) { Toast.show('Select at least one file', 'warning'); return; }
-      this.peer.prepareShare(this.files.map(f => ({ file: f.file, name: f.name, size: f.size, type: f.type })), this.settings);
+      const sec = $('send-security')?.value || 'standard';
+      this.settings.security = sec;
+      this.peer.prepareShare(this.files.map(f => ({ file: f.file, name: f.name, size: f.size, type: f.type })), sec);
     });
+
     $('confirm-text-btn').addEventListener('click', () => {
       const text = $('text-input').value.trim();
       if (!text) { Toast.show('Enter some text to send', 'warning'); return; }
       const blob = new Blob([text], { type: 'text/plain' });
       this.files = [{ content: text, name: 'message.txt', size: blob.size, type: 'text/plain' }];
-      this.peer.prepareShare(this.files, this.settings);
+      const sec = $('send-security-text')?.value || 'standard';
+      this.settings.security = sec;
+      this.peer.prepareShare(this.files, sec);
     });
+
     $('cancel-share-btn').addEventListener('click', () => {
       $('share-view').hidden = true;
       if (this.files[0]?.content) $('view-text').hidden = false;
@@ -874,34 +1023,6 @@ const App = {
     $('done-close-btn').addEventListener('click', () => this.reset());
     $('error-close-btn').addEventListener('click', () => this.reset());
 
-    // Settings
-    const ss = $('setting-security'), sc = $('setting-chunk');
-    if (ss) {
-      ss.value = this.settings.security;
-      ss.addEventListener('change', (e) => { this.settings.security = e.target.value; SettingsStore.save('security', e.target.value); });
-    }
-    if (sc) {
-      sc.value = this.settings.chunkMode;
-      sc.addEventListener('change', (e) => { this.settings.chunkMode = e.target.value; SettingsStore.save('chunkMode', e.target.value); });
-    }
-
-    const toggleAutoDl = () => {
-      this.settings.autoDownload = !this.settings.autoDownload;
-      SettingsStore.save('autoDownload', this.settings.autoDownload);
-      const btn = $('setting-autodl');
-      if (btn) btn.setAttribute('aria-checked', String(this.settings.autoDownload));
-    };
-    $('setting-autodl')?.addEventListener('click', toggleAutoDl);
-    if (this.settings.autoDownload) {
-      const btn = $('setting-autodl');
-      if (btn) btn.setAttribute('aria-checked', 'true');
-    }
-
-    $('reset-settings-btn')?.addEventListener('click', () => {
-      SettingsStore.reset();
-      location.reload();
-    });
-
     // Warn on unload during active transfer
     window.addEventListener('beforeunload', (e) => {
       if ($('transfer-overlay') && !$('transfer-overlay').hidden) {
@@ -925,24 +1046,26 @@ const App = {
     this.peer.connectWithKey(raw, keyVal || null);
   },
 
-    addFiles(fileList) {
-    const incoming = Array.from(fileList);
-    const merged = [...this.files.filter(f => f.file), ...incoming];
+  addFiles(fileList) {
+    const incoming = Array.from(fileList).map(f => ({
+      file: f, name: f.name, size: f.size, type: f.type || 'application/octet-stream'
+    }));
+    const merged = [...this.files, ...incoming];
     if (merged.length > CONFIG.MAX_FILES) { Toast.show(`Max ${CONFIG.MAX_FILES} files allowed`, 'error'); return; }
     let total = 0;
     for (const f of merged) {
-      if (f.size > CONFIG.MAX_FILE_SIZE) { Toast.show(`"${f.name}" exceeds the 2 GB limit`, 'error'); return; }
+      if (f.size > CONFIG.MAX_FILE_SIZE) { Toast.show(`"${f.name}" exceeds the 5 GB limit`, 'error'); return; }
       total += f.size;
     }
-    if (total > CONFIG.MAX_TOTAL_SIZE) { Toast.show('Total size exceeds 5 GB', 'error'); return; }
-    this.files = merged.map(f => f.file ? f : { file: f, name: f.name, size: f.size, type: f.type || 'application/octet-stream' });
+    if (total > CONFIG.MAX_TOTAL_SIZE) { Toast.show('Total size exceeds 50 GB', 'error'); return; }
+    this.files = merged;
     this.renderFiles();
   },
 
   renderFiles() {
     const list = $('file-list');
     if (!list) return;
-    list.innerHTML = '';
+    const frag = document.createDocumentFragment();
     const container = $('file-list-container');
     if (!this.files.length) { container.hidden = true; return; }
     container.hidden = false;
@@ -951,6 +1074,7 @@ const App = {
     const total = this.files.reduce((s, f) => s + f.size, 0);
     const tsl = $('total-size-label');
     if (tsl) tsl.textContent = fmtBytes(total);
+
     this.files.forEach((f, idx) => {
       const icon = phIcon(fileIconType(f.name));
       const removeBtn = el('button', 'file-remove', { 'aria-label': `Remove ${f.name}`, type: 'button' }, [
@@ -965,8 +1089,10 @@ const App = {
         ]),
         removeBtn,
       ]);
-      list.appendChild(row);
+      frag.appendChild(row);
     });
+    list.innerHTML = '';
+    list.appendChild(frag);
   },
 
   switchPanel(name) {
@@ -977,7 +1103,6 @@ const App = {
       b.classList.toggle('is-active', active);
       b.setAttribute('aria-current', active ? 'page' : 'false');
     });
-    // Close mobile sidebar on nav
     const sidebar = $('sidebar'), overlay = $('sidebar-overlay'), hamburger = $('hamburger');
     if (sidebar?.classList.contains('is-open')) {
       sidebar.classList.remove('is-open');
@@ -1012,6 +1137,7 @@ const App = {
     if (!downloadableItems.length) { fc.hidden = true; return; }
     fc.hidden = false;
 
+    const frag = document.createDocumentFragment();
     downloadableItems.forEach(q => {
       let url, revoke = false;
       if (q.textContent) {
@@ -1031,19 +1157,10 @@ const App = {
         ]),
         saveBtn,
       ]);
-      fl.appendChild(row);
-
-      if (this.settings.autoDownload && !q.textContent) {
-        setTimeout(() => {
-          const a = document.createElement('a');
-          a.href = url; a.download = sanitizeFilename(q.name);
-          a.style.display = 'none'; document.body.appendChild(a); a.click();
-          setTimeout(() => { a.remove(); }, 500);
-        }, 400 * (downloadableItems.indexOf(q) + 1));
-      }
+      frag.appendChild(row);
     });
+    fl.appendChild(frag);
 
-    // Wire the fixed "Download all" footer button
     const dlAllBtn = $('download-all-btn');
     if (dlAllBtn) {
       dlAllBtn.onclick = () => {
@@ -1087,9 +1204,9 @@ const App = {
     const ts = $('topo-status');
     if (ts) ts.textContent = text;
     const you = $('topo-you'), peer = $('topo-peer'), line = $('topo-active-line'), packet = $('topo-packet');
-    const fillMap = { success:'#34d399', danger:'#f87171', warning:'#fbbf24', info:'#60a5fa' };
+    const fillMap = { success:'#1e8e3e', danger:'#d93025', warning:'#f9ab00', info:'#0a56d0' };
     const lineX = { success:'120', danger:'20', warning:'60', info:'60' };
-    const c = fillMap[color] || '#71717a';
+    const c = fillMap[color] || '#80868b';
     if (you) you.style.fill = c;
     if (peer) peer.style.fill = c;
     if (line) line.setAttribute('x2', lineX[color] || '20');
