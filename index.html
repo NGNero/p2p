@@ -12,6 +12,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Google+Sans+Flex:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css">
 
+<!-- daisyUI (used for dropzone component only) -->
+<link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.14/dist/full.min.css" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+
 <link rel="stylesheet" href="dropzone.css">
 
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js" defer></script>
@@ -102,13 +106,20 @@
           </div>
 
           <div id="view-files" class="tab-panel is-active" role="tabpanel" aria-labelledby="tab-files">
-            <label class="dropzone" id="dropzone" for="file-input" tabindex="0">
-              <input type="file" id="file-input" class="sr-only" multiple aria-label="Select files to send">
-              <div class="dropzone-icon">
-                <i class="ph ph-upload-simple" aria-hidden="true"></i>
+            <!-- daisyUI file-input used as dropzone -->
+            <label
+              id="dropzone"
+              for="file-input"
+              tabindex="0"
+              class="dz-label flex flex-col items-center justify-content-center gap-2 w-full cursor-pointer rounded-[var(--radius)] border-2 border-dashed border-[var(--border-strong)] bg-[var(--surface)] p-10 text-center transition-colors duration-200 hover:border-[var(--accent)] hover:bg-[var(--accent-dim)] focus-visible:outline-[var(--accent)]"
+              aria-label="Drop files here or click to browse"
+            >
+              <input type="file" id="file-input" class="hidden" multiple aria-label="Select files to send">
+              <div class="dropzone-icon text-[var(--text-dim)]">
+                <i class="ph ph-upload-simple text-4xl" aria-hidden="true"></i>
               </div>
-              <p class="dropzone-title">Drop files or click to browse</p>
-              <p class="dropzone-hint">Up to 200 files · 5 GB each · 50 GB total</p>
+              <p class="dropzone-title text-[var(--header)] font-semibold text-[0.9375rem] font-[var(--font-heading)]">Drop files or click to browse</p>
+              <p class="dropzone-hint text-[0.75rem] text-[var(--text-dim)]">Up to 200 files · 5 GB each · 50 GB total</p>
             </label>
 
             <div id="file-list-container" class="file-list-container" hidden>
@@ -162,28 +173,31 @@
               </div>
               <div class="share-actions">
                 <div class="copy-row">
-                  <input type="text" id="share-url" class="input mono" readonly aria-label="Share link">
+                  <input type="text" id="share-url" class="input mono" readonly aria-label="Share URL">
                   <button type="button" id="copy-link-btn" class="btn secondary">
-                    <i class="ph ph-link" aria-hidden="true"></i> Copy
+                    <i class="ph ph-copy" aria-hidden="true"></i> Copy
                   </button>
                 </div>
-                <div class="copy-row" id="key-row" hidden>
+                <div id="key-row" class="copy-row" hidden>
                   <input type="text" id="share-key" class="input mono" readonly aria-label="Encryption key">
                   <button type="button" id="copy-key-btn" class="btn secondary">
-                    <i class="ph ph-key" aria-hidden="true"></i> Copy Key
+                    <i class="ph ph-key" aria-hidden="true"></i> Copy key
                   </button>
                 </div>
-              </div>
-              <div class="share-meta">
-                <div class="badge" id="security-badge">
-                  <i class="ph ph-shield-check" aria-hidden="true"></i>
-                  <span id="security-badge-text">Standard WebRTC</span>
+                <div class="share-meta">
+                  <span class="badge">
+                    <i class="ph ph-shield-check" aria-hidden="true"></i>
+                    <span id="security-badge-text">Standard WebRTC</span>
+                  </span>
+                  <span class="status-pill">
+                    <i class="ph ph-circle-notch spin" aria-hidden="true"></i>
+                    Waiting for receiver…
+                  </span>
                 </div>
-                <span class="status-pill" id="share-status">
-                  <i class="ph ph-circle-notch" aria-hidden="true"></i> Waiting…
-                </span>
               </div>
-              <button type="button" id="cancel-share-btn" class="btn text">Cancel</button>
+              <button type="button" id="cancel-share-btn" class="btn text secondary">
+                <i class="ph ph-arrow-left" aria-hidden="true"></i> Back
+              </button>
             </div>
           </div>
         </section>
@@ -241,7 +255,7 @@
             <article class="card help-card">
               <div class="help-icon"><i class="ph ph-arrows-left-right" aria-hidden="true"></i></div>
               <h3>Adaptive chunking</h3>
-              <p>DropZone measures latency in real time and adjusts packet size automatically. Transfers stay fast without exhausting memory.</p>
+              <p>DropZone measures round-trip time and adjusts packet size automatically so transfers stay fast without exhausting memory.</p>
             </article>
             <article class="card help-card">
               <div class="help-icon"><i class="ph ph-hard-drives" aria-hidden="true"></i></div>
@@ -295,17 +309,6 @@
           <i class="ph ph-x" aria-hidden="true"></i> Cancel
         </button>
       </div>
-
-      <div class="transfer-stats">
-        <span class="stat">
-          <span class="stat-dot warning"></span>
-          Retries <strong id="retry-display">0</strong>
-        </span>
-        <span class="stat">
-          <span class="stat-dot success"></span>
-          <strong id="chunk-display">0</strong> chunks
-        </span>
-      </div>
     </div>
   </div>
 
@@ -327,13 +330,6 @@
           </button>
         </div>
       </div>
-
-      <dl class="done-stats">
-        <div><dt>Duration</dt><dd id="stat-duration">—</dd></div>
-        <div><dt>Avg speed</dt><dd id="stat-speed">—</dd></div>
-        <div><dt>Chunks</dt><dd id="stat-chunks">—</dd></div>
-        <div><dt>Retries</dt><dd id="stat-retries">—</dd></div>
-      </dl>
 
       <button type="button" id="done-close-btn" class="btn">Close</button>
     </div>
